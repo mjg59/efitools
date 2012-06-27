@@ -1,0 +1,6 @@
+*.efi
+*.key
+*.crt
+*.cer
+PK.*
+KEK.*

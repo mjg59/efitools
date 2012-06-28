@@ -157,7 +157,6 @@ EFI_STATUS
 efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 {
 	EFI_STATUS efi_status;
-	char Data[4096];
 	UINT8 SecureBoot, SetupMode;
 	UINTN DataSize = sizeof(SetupMode);
 
@@ -177,15 +176,33 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 
 	Print(L"Platform is in Setup Mode\n");
 
-	efi_status = SetSecureVariable(L"PK", PK_cer, PK_cer_len);
 	efi_status = SetSecureVariable(L"KEK", KEK_cer, KEK_cer_len);
+	if (efi_status != EFI_SUCCESS) {
+		Print(L"Failed to enrol KEK: %d\n", efi_status);
+		return efi_status;
+	}
+	efi_status = SetSecureVariable(L"PK", PK_cer, PK_cer_len);
+	if (efi_status != EFI_SUCCESS) {
+		Print(L"Failed to enrol PK: %d\n", efi_status);
+		return efi_status;
+	}
+	/* enrolling the PK should put us in SetupMode; check this */
+	efi_status = uefi_call_wrapper(RT->GetVariable, 5, L"SetupMode", &GV_GUID, NULL, &DataSize, &SetupMode);
+	if (efi_status != EFI_SUCCESS) {
+		Print(L"Failed to get SetupMode variable: %d\n", efi_status);
+		return efi_status;
+	}
+	Print(L"Platform %s in Secure Mode\n", SetupMode ? L"is not" : L"is");
 
-	/* now enable secure boot */
+	/* finally, check that SecureBoot is enabled */
 
-	efi_status = uefi_call_wrapper(RT->SetVariable, 5, L"SecureBoot", &GV_GUID,
-				       EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS,
-				       sizeof(SecureBoot), &SecureBoot);
+	efi_status = uefi_call_wrapper(RT->GetVariable, 5, L"SecureBoot", &GV_GUID, NULL, &DataSize, &SecureBoot);
+
+	if (efi_status != EFI_SUCCESS) {
+		Print(L"Failed to get SecureBoot variable: %d\n", efi_status);
+		return efi_status;
+	}
+	Print(L"Platform %s set to boot securely\n", SecureBoot ? L"is" : L"is not");
 
 	return EFI_SUCCESS;
-	
 }

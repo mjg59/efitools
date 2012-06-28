@@ -53,6 +53,6 @@ PK.h: PK.cer
 KEK.h: KEK.cer
 
 clean:
-	rm -f PK.* KEK.* $(EFIFILES)
+	rm -f PK.* KEK.* $(EFIFILES) $(EFISIGNED)
 
 

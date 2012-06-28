@@ -178,12 +178,12 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 
 	efi_status = SetSecureVariable(L"KEK", KEK_cer, KEK_cer_len);
 	if (efi_status != EFI_SUCCESS) {
-		Print(L"Failed to enrol KEK: %d\n", efi_status);
+		Print(L"Failed to enroll KEK: %d\n", efi_status);
 		return efi_status;
 	}
 	efi_status = SetSecureVariable(L"PK", PK_cer, PK_cer_len);
 	if (efi_status != EFI_SUCCESS) {
-		Print(L"Failed to enrol PK: %d\n", efi_status);
+		Print(L"Failed to enroll PK: %d\n", efi_status);
 		return efi_status;
 	}
 	/* enrolling the PK should put us in SetupMode; check this */
@@ -192,7 +192,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		Print(L"Failed to get SetupMode variable: %d\n", efi_status);
 		return efi_status;
 	}
-	Print(L"Platform %s in Secure Mode\n", SetupMode ? L"is not" : L"is");
+	Print(L"Platform is in %s Mode\n", SetupMode ? L"Setup" : L"User");
 
 	/* finally, check that SecureBoot is enabled */
 

@@ -1,6 +1,11 @@
+*.o
+*.so
+*.a
 *.efi
 *.key
 *.crt
+*.csr
 *.cer
 PK.*
 KEK.*
+DB.*

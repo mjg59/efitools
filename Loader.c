@@ -37,7 +37,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		Print(L"Secure Boot Disabled\n");
 	}
 
-	efi_status = simple_file_open(image, loader, &file);
+	efi_status = simple_file_open(image, loader, &file, EFI_FILE_MODE_READ);
 	if (efi_status != EFI_SUCCESS) {
 		Print(L"Failed to open %s\n", loader);
 		return efi_status;

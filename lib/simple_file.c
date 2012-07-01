@@ -96,7 +96,7 @@ error:
 }
 
 EFI_STATUS
-simple_file_open (EFI_HANDLE image, CHAR16 *name, EFI_FILE **file)
+simple_file_open (EFI_HANDLE image, CHAR16 *name, EFI_FILE **file, UINT64 mode)
 {
 	EFI_STATUS efi_status;
 	EFI_HANDLE device;
@@ -140,7 +140,7 @@ simple_file_open (EFI_HANDLE image, CHAR16 *name, EFI_FILE **file)
 	}
 
 	efi_status = uefi_call_wrapper(root->Open, 5, root, file, PathName,
-				       EFI_FILE_MODE_READ, 0);
+				       mode, 0);
 
  error:
 	//if (PathName)
@@ -175,6 +175,17 @@ simple_file_read_all(EFI_FILE *file, UINTN *size, void **buffer)
 		return EFI_OUT_OF_RESOURCES;
 	}
 	efi_status = uefi_call_wrapper(file->Read, 3, file, size, *buffer);
+
+	return efi_status;
+}
+
+
+EFI_STATUS
+simple_file_write_all(EFI_FILE *file, UINTN size, void *buffer)
+{
+	EFI_STATUS efi_status;
+
+	efi_status = uefi_call_wrapper(file->Write, 3, file, size, buffer);
 
 	return efi_status;
 }

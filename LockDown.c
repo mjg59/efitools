@@ -6,11 +6,13 @@
 #include "DB.h"
 
 EFI_GUID GV_GUID = EFI_GLOBAL_VARIABLE;
+EFI_GUID SIG_DB = { 0xd719b2cb, 0x3d3a, 0x4596, {0xa3, 0xbc, 0xda, 0xd0,  0xe, 0x67, 0x65, 0x6f }};
 
 EFI_STATUS
 CreatePkX509SignatureList (
   IN	UINT8			    *X509Data,
   IN	UINTN			    X509DataSize,
+  IN	EFI_GUID		    owner,
   OUT   EFI_SIGNATURE_LIST          **PkCert 
   )
 {
@@ -42,7 +44,7 @@ CreatePkX509SignatureList (
   PkCertData                     = (EFI_SIGNATURE_DATA*) ((UINTN)(*PkCert) 
                                                           + sizeof(EFI_SIGNATURE_LIST)
                                                           + (*PkCert)->SignatureHeaderSize);
-  PkCertData->SignatureOwner = (EFI_GUID)EFI_GLOBAL_VARIABLE;  
+  PkCertData->SignatureOwner = owner;  
   //
   // Fill the PK database with PKpub data from X509 certificate file.
   //  
@@ -126,13 +128,13 @@ CreateTimeBasedPayload (
 }
 
 EFI_STATUS
-SetSecureVariable(CHAR16 *var, UINT8 *Data, UINTN len)
+SetSecureVariable(CHAR16 *var, UINT8 *Data, UINTN len, EFI_GUID owner)
 {
 	EFI_SIGNATURE_LIST *Cert;
 	UINTN DataSize;
 	EFI_STATUS efi_status;
 
-	efi_status = CreatePkX509SignatureList(Data, len, &Cert);
+	efi_status = CreatePkX509SignatureList(Data, len, owner, &Cert);
 	if (efi_status != EFI_SUCCESS) {
 		Print(L"Failed to create %s certificate %d\n", var, efi_status);
 		return efi_status;
@@ -146,7 +148,7 @@ SetSecureVariable(CHAR16 *var, UINT8 *Data, UINTN len)
 		return efi_status;
 	}
 
-	efi_status = uefi_call_wrapper(RT->SetVariable, 5, var, &GV_GUID,
+	efi_status = uefi_call_wrapper(RT->SetVariable, 5, var, &owner,
 				       EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_RUNTIME_ACCESS 
 				       | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS,
 				       DataSize, Cert);
@@ -177,18 +179,17 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 
 	Print(L"Platform is in Setup Mode\n");
 
-	efi_status = SetSecureVariable(L"db", DB_cer, DB_cer_len);
-	if (efi_status != EFI_SUCCESS) {
-		Print(L"Failed to enroll db: %d\n", efi_status);
-		return efi_status;
-	}
-
-	efi_status = SetSecureVariable(L"KEK", KEK_cer, KEK_cer_len);
+	efi_status = SetSecureVariable(L"KEK", KEK_cer, KEK_cer_len, GV_GUID);
 	if (efi_status != EFI_SUCCESS) {
 		Print(L"Failed to enroll KEK: %d\n", efi_status);
 		return efi_status;
 	}
-	efi_status = SetSecureVariable(L"PK", PK_cer, PK_cer_len);
+	efi_status = SetSecureVariable(L"db", DB_cer, DB_cer_len, SIG_DB);
+	if (efi_status != EFI_SUCCESS) {
+		Print(L"Failed to enroll db: %d\n", efi_status);
+		return efi_status;
+	}
+	efi_status = SetSecureVariable(L"PK", PK_cer, PK_cer_len, GV_GUID);
 	if (efi_status != EFI_SUCCESS) {
 		Print(L"Failed to enroll PK: %d\n", efi_status);
 		return efi_status;

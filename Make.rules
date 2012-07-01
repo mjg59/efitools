@@ -39,9 +39,12 @@ endif
 	openssl req -new -newkey rsa:2048 -keyout $*-subkey.key -subj "/CN=Subkey $* of KEK/" -out $@ -nodes
 
 %-subkey.crt: %-subkey.csr KEK.crt
-	openssl x509 -req -in $< -CA KEK.crt -CAkey KEK.key -set_serial 1 -out $@ -days 365
+	openssl x509 -req -in $< -CA DB.crt -CAkey DB.key -set_serial 1 -out $@ -days 365
 
-%-signed.efi: %.efi KEK.crt
+%-db-signed.efi: %.efi DB.crt
+	sbsign --key DB.key --cert DB.crt --output $@ $<
+
+%-kek-signed.efi: %.efi KEK.crt
 	sbsign --key KEK.key --cert KEK.crt --output $@ $<
 
 %.a:

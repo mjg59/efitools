@@ -4,17 +4,20 @@ export TOPDIR	:= $(shell pwd)/
 
 include Make.rules
 
-EFISIGNED = $(patsubst %.efi,%-signed.efi,$(EFIFILES))
+EFISIGNED = $(patsubst %.efi,%-db-signed.efi,$(EFIFILES)) \
+	$(patsubst %.efi,%-kek-signed.efi,$(EFIFILES))
 
 all: $(EFISIGNED)
 
 lib/lib.a: FORCE
 	make -C lib
 
+.SUFFIXES: .crt
+
 PK.crt KEK.crt DB.crt:
 	openssl req -new -x509 -newkey rsa:2048 -subj "/CN=$*/" -keyout $*.key -out $@ -days 3650 -nodes
 
-.KEEP: PK.crt KEK.crt DB.crt $(EFIFILES)
+.KEEP: PK.crt KEK.crt DB.crt PK.key KEK.key DB.key $(EFIFILES)
 
 LockDown.efi: PK.h KEK.h DB.h
 

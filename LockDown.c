@@ -3,6 +3,7 @@
 #include "efiauthenticated.h"
 #include "PK.h"
 #include "KEK.h"
+#include "DB.h"
 
 EFI_GUID GV_GUID = EFI_GLOBAL_VARIABLE;
 
@@ -175,6 +176,12 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	}
 
 	Print(L"Platform is in Setup Mode\n");
+
+	efi_status = SetSecureVariable(L"db", DB_cer, DB_cer_len);
+	if (efi_status != EFI_SUCCESS) {
+		Print(L"Failed to enroll db: %d\n", efi_status);
+		return efi_status;
+	}
 
 	efi_status = SetSecureVariable(L"KEK", KEK_cer, KEK_cer_len);
 	if (efi_status != EFI_SUCCESS) {

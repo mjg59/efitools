@@ -1,4 +1,4 @@
-EFIFILES = HelloWorld.efi LockDown.efi Loader.efi
+EFIFILES = HelloWorld.efi LockDown.efi Loader.efi ReadVars.efi
 
 export TOPDIR	:= $(shell pwd)/
 

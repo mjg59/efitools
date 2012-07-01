@@ -189,6 +189,15 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		Print(L"Failed to enroll db: %d\n", efi_status);
 		return efi_status;
 	}
+#if 0
+	/* testing revocation ... this will revoke the certificate
+	 * we just enrolled in db */
+	efi_status = SetSecureVariable(L"dbx", DB_cer, DB_cer_len, SIG_DB);
+	if (efi_status != EFI_SUCCESS) {
+		Print(L"Failed to enroll dbx: %d\n", efi_status);
+		return efi_status;
+	}
+#endif
 	efi_status = SetSecureVariable(L"PK", PK_cer, PK_cer_len, GV_GUID);
 	if (efi_status != EFI_SUCCESS) {
 		Print(L"Failed to enroll PK: %d\n", efi_status);

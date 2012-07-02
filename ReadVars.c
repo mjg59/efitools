@@ -97,7 +97,9 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 
 	for (i = 0; i < ARRAY_SIZE(owners); i++) {
 		efi_status = get_variable(variables[i], &data, &len, owners[i]);
-		if (efi_status != EFI_SUCCESS) {
+		if (efi_status == EFI_NOT_FOUND) {
+			Print(L"Variable %s has no entries\n");
+		} else if (efi_status != EFI_SUCCESS) {
 			Print(L"Failed to get %s: %d\n", variables[i], efi_status);
 		} else {
 			Print(L"Variable %s length %d\n", variables[i], len);

@@ -185,7 +185,13 @@ simple_file_write_all(EFI_FILE *file, UINTN size, void *buffer)
 {
 	EFI_STATUS efi_status;
 
-	efi_status = uefi_call_wrapper(file->Write, 3, file, size, buffer);
+	efi_status = uefi_call_wrapper(file->Write, 3, file, &size, buffer);
 
 	return efi_status;
+}
+
+void
+simple_file_close(EFI_FILE *file)
+{
+	uefi_call_wrapper(file->Close, 1, file);
 }

@@ -18,7 +18,7 @@ parse_db(UINT8 *data, UINTN len, EFI_HANDLE image, CHAR16 *name)
 	EFI_SIGNATURE_DATA  *Cert;
 	UINTN Index, count = 0, DataSize = len, CertCount;
 	EFI_FILE *file;
-	CHAR16 *buf = AllocatePool(StrLen(name)*2 + 4 + 2 + 4 + 8);
+	CHAR16 *buf = AllocatePool(StrLen(name)*2 + 4 + 2 + 4 + 8 +100);
 	CHAR16 *ext;
 	EFI_STATUS status;
 
@@ -33,18 +33,19 @@ parse_db(UINT8 *data, UINTN len, EFI_HANDLE image, CHAR16 *name)
 		for (Index = 0; Index < CertCount; Index++) {
 			Print(L"List %d Signature %d, size %d, Type %g, GUID %g\n",
 			      count, Index, CertList->SignatureSize, &CertList->SignatureType, &Cert->SignatureOwner);
-			SPrint(buf, 0, L"%s-%d-%d.%s", name, count, Index, ext);
+			SPrint(buf, 0, L"%s-%d-%d-%g.%s", name, count, Index, &Cert->SignatureOwner, ext);
 			Print(L"Writing to file %s\n", buf);
 			status = simple_file_open(image, buf, &file, EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_CREATE);
 			if (status != EFI_SUCCESS) {
 				Print(L"Failed to open file %s: %d\n", buf, status);
 				goto cont;
 			}
-			Print(L"File Opened %d\n", status);
 			status = simple_file_write_all(file, CertList->SignatureSize-sizeof(EFI_GUID), Cert->SignatureData);
-			Print(L"File Written: %d\n", status);
+			if (status != EFI_SUCCESS) {
+				Print(L"Failed to write signature to file %s: %d\n", buf, status);
+				goto cont;
+			}
 			simple_file_close(file);
-			Print(L"File Closed\n");
 
 		cont:
 			Cert = (EFI_SIGNATURE_DATA *) ((UINT8 *) Cert + CertList->SignatureSize);
@@ -52,7 +53,7 @@ parse_db(UINT8 *data, UINTN len, EFI_HANDLE image, CHAR16 *name)
 		DataSize -= CertList->SignatureListSize;
 		CertList = (EFI_SIGNATURE_LIST *) ((UINT8 *) CertList + CertList->SignatureListSize);
 	}
-
+	FreePool(buf);
 }
 
 

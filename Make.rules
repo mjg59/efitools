@@ -2,7 +2,7 @@ EFISIGNED = $(patsubst %.efi,%-signed.efi,$(EFIFILES))
 ARCH	= $(shell uname -m)
 INCDIR	   = -I$(TOPDIR)include/ -I/usr/include/efi -I/usr/include/efi/$(ARCH) -I/usr/include/efi/protocol
 CPPFLAGS   = -DCONFIG_$(ARCH)
-CFLAGS	   = -O2 -fpic -Wall -fshort-wchar -fno-strict-aliasing -fno-merge-constants
+CFLAGS	   = -O2 -fpic -Wall -fshort-wchar -fno-strict-aliasing -fno-merge-constants -mno-red-zone
 LDFLAGS	   = -nostdlib
 CRTOBJS		= /usr/lib64/crt0-efi-$(ARCH).o
 # there's a bug in the gnu tools ... the .reloc section has to be

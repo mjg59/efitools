@@ -1,4 +1,4 @@
-EFIFILES = HelloWorld.efi LockDown.efi Loader.efi ReadVars.efi
+EFIFILES = HelloWorld.efi LockDown.efi Loader.efi ReadVars.efi UpdateVars.efi
 
 export TOPDIR	:= $(shell pwd)/
 
@@ -29,6 +29,7 @@ DB.h: DB.cer
 
 Loader.so: lib/lib.a
 ReadVars.so: lib/lib.a
+UpdateVars.so: lib/lib.a
 
 clean:
 	rm -f PK.* KEK.* $(EFIFILES) $(EFISIGNED)

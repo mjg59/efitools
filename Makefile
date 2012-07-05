@@ -30,6 +30,7 @@ DB.h: DB.cer
 Loader.so: lib/lib.a
 ReadVars.so: lib/lib.a
 UpdateVars.so: lib/lib.a
+LockDown.so: lib/lib.a
 
 clean:
 	rm -f PK.* KEK.* $(EFIFILES) $(EFISIGNED)

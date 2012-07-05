@@ -1,4 +1,5 @@
-
+#ifndef _INC_EFIAUTHENTICATED_H
+#define _INC_EFIAUTHENTICATED_H
 //***********************************************************************
 // Signature Database
 //***********************************************************************
@@ -226,3 +227,4 @@ typedef struct {
   WIN_CERTIFICATE_UEFI_GUID   AuthInfo;
  } EFI_VARIABLE_AUTHENTICATION_2;
 
+#endif

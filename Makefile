@@ -1,4 +1,5 @@
 EFIFILES = HelloWorld.efi LockDown.efi Loader.efi ReadVars.efi UpdateVars.efi
+BINARIES = cert-to-efi-sig-list
 
 export TOPDIR	:= $(shell pwd)/
 
@@ -7,7 +8,7 @@ include Make.rules
 EFISIGNED = $(patsubst %.efi,%-db-signed.efi,$(EFIFILES)) \
 	$(patsubst %.efi,%-kek-signed.efi,$(EFIFILES))
 
-all: $(EFISIGNED)
+all: $(EFISIGNED) $(BINARIES)
 
 lib/lib.a: FORCE
 	make -C lib
@@ -32,8 +33,11 @@ ReadVars.so: lib/lib.a
 UpdateVars.so: lib/lib.a
 LockDown.so: lib/lib.a
 
+cert-to-efi-sig-list: cert-to-efi-sig-list.o
+	$(CC) -o $@ $< -lcrypto
+
 clean:
-	rm -f PK.* KEK.* $(EFIFILES) $(EFISIGNED)
+	rm -f PK.* KEK.* DB.* $(EFIFILES) $(EFISIGNED) $(BINARIES) *.o *.so
 
 FORCE:
 

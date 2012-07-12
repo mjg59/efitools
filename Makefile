@@ -1,5 +1,5 @@
 EFIFILES = HelloWorld.efi LockDown.efi Loader.efi ReadVars.efi UpdateVars.efi
-BINARIES = cert-to-efi-sig-list
+BINARIES = cert-to-efi-sig-list sig-list-to-certs
 
 export TOPDIR	:= $(shell pwd)/
 
@@ -34,6 +34,9 @@ UpdateVars.so: lib/lib.a
 LockDown.so: lib/lib.a
 
 cert-to-efi-sig-list: cert-to-efi-sig-list.o
+	$(CC) -o $@ $< -lcrypto
+
+sig-list-to-certs: sig-list-to-certs.o
 	$(CC) -o $@ $< -lcrypto
 
 clean:

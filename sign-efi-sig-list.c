@@ -56,6 +56,8 @@ main(int argc, char *argv[])
 
 		} else if (strcmp("-a", argv[1]) == 0) {
 			attributes |= EFI_VARIABLE_APPEND_WRITE;
+			argv += 1;
+			argc -= 1;
 		} else  {
 			break;
 		}
@@ -89,7 +91,7 @@ main(int argc, char *argv[])
 	time(&t);
 	struct tm *tm = gmtime(&t);
 
-	timestamp.Year = tm->tm_year + 1900;
+	timestamp.Year = tm->tm_year + 1901;
 	timestamp.Month = tm->tm_mon;
 	timestamp.Day = tm->tm_mday;
 	timestamp.Hour = tm->tm_hour;
@@ -147,38 +149,45 @@ main(int argc, char *argv[])
 	ptr += sizeof(timestamp);
 	read(fdefifile, ptr, st.st_size);
 
-	
-	SHA256_CTX ctx;
-	SHA256_Init(&ctx);
-	SHA256_Update(&ctx,signbuf, signbuflen);
-	uint8_t digest[SHA256_DIGEST_LENGTH];
-	SHA256_Final(digest, &ctx);
+	printf("Authentication Payload size %d\n", signbuflen);
 
-	BIO *bio_data = BIO_new_mem_buf(digest, sizeof(digest));
 	
-	PKCS7 *p7 = PKCS7_sign(cert, pkey, NULL, bio_data, PKCS7_BINARY);
+	BIO *bio_data = BIO_new_mem_buf(signbuf, signbuflen);
+	
+	PKCS7 *p7 = PKCS7_sign(NULL, NULL, NULL, bio_data, PKCS7_BINARY|PKCS7_PARTIAL);
+	const EVP_MD *md = EVP_get_digestbyname("SHA256");
+	PKCS7_sign_add_signer(p7, cert, pkey, md, PKCS7_BINARY);
+	PKCS7_final(p7, bio_data, PKCS7_BINARY);
+
 
 	int sigsize = i2d_PKCS7(p7, NULL);
 
-	EFI_VARIABLE_AUTHENTICATION_2 *var_auth = malloc(sizeof(EFI_VARIABLE_AUTHENTICATION_2) + sigsize - 1);
+	printf("Signature of size %d\n", sigsize);
+
+	EFI_VARIABLE_AUTHENTICATION_2 *var_auth = malloc(sizeof(EFI_VARIABLE_AUTHENTICATION_2) + sigsize);
 	unsigned char *sigbuf = var_auth->AuthInfo.CertData;
 
 	var_auth->TimeStamp = timestamp;
 	var_auth->AuthInfo.CertType = EFI_CERT_TYPE_PKCS7_GUID;
-	var_auth->AuthInfo.Hdr.dwLength = sigsize + sizeof(WIN_CERTIFICATE_UEFI_GUID) - 1;
+	var_auth->AuthInfo.Hdr.dwLength = sigsize + OFFSET_OF(WIN_CERTIFICATE_UEFI_GUID, CertData);
 	var_auth->AuthInfo.Hdr.wRevision = 0x0200;
 	var_auth->AuthInfo.Hdr.wCertificateType = WIN_CERT_TYPE_EFI_GUID;
 
 	i2d_PKCS7(p7, &sigbuf);
 	ERR_print_errors_fp(stdout);
 
-	int fdoutfile = open(outfile, O_CREAT|O_WRONLY, S_IWUSR|S_IRUSR);
+	int fdoutfile = open(outfile, O_CREAT|O_WRONLY|O_TRUNC, S_IWUSR|S_IRUSR);
 	if (fdoutfile == -1) {
 		fprintf(stderr, "failed to open %s: ", outfile);
 		perror("");
 		exit(1);
 	}
-	write(fdoutfile, var_auth, sizeof(EFI_VARIABLE_AUTHENTICATION_2) + sigsize - 1);
+	/* first we write the authentication header */
+	write(fdoutfile, var_auth, OFFSET_OF(EFI_VARIABLE_AUTHENTICATION_2, AuthInfo.CertData) + sigsize);
+	/* Then we write the payload */
+	write(fdoutfile, ptr, st.st_size);
+	/* so now the file is complete and can be fed straight into
+	 * SetVariable() as an authenticated variable update */
 	close(fdoutfile);
 
 	return 0;

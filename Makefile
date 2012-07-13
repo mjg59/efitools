@@ -16,7 +16,7 @@ lib/lib.a: FORCE
 .SUFFIXES: .crt
 
 PK.crt KEK.crt DB.crt:
-	openssl req -new -x509 -newkey rsa:2048 -subj "/CN=$*/" -keyout $*.key -out $@ -days 3650 -nodes
+	openssl req -new -x509 -newkey rsa:2048 -subj "/CN=$*/" -keyout $*.key -out $@ -days 3650 -nodes -sha256
 
 .KEEP: PK.crt KEK.crt DB.crt PK.key KEK.key DB.key $(EFIFILES)
 

@@ -19,7 +19,7 @@ main(int argc, char *argv[])
 	int rsasig;
 	EFI_GUID owner = { 0 };
 
-	for (;;) {
+	while (argc > 1) {
 		if (strcmp("-g", argv[1]) == 0) {
 			sscanf(argv[2],
 			       "%8x-%4hx-%4hx-%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx",

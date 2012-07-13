@@ -54,16 +54,17 @@ main(int argc, char *argv[])
         BIO *cert_bio = BIO_new_file(certfile, "r");
         X509 *cert = PEM_read_bio_X509(cert_bio, NULL, NULL, NULL);
 	int PkCertLen = i2d_X509(cert, NULL);
-	PkCertLen += sizeof(EFI_SIGNATURE_LIST) + sizeof(EFI_SIGNATURE_DATA) - 1;
+
+	PkCertLen += sizeof(EFI_SIGNATURE_LIST) + OFFSET_OF(EFI_SIGNATURE_DATA, SignatureData);
 	EFI_SIGNATURE_LIST          *PkCert = malloc (PkCertLen);
 	if (!PkCert) {
 		fprintf(stderr, "failed to malloc cert\n");
 		exit(1);
 	}
-	unsigned char *tmp = (unsigned char *)PkCert + sizeof(EFI_SIGNATURE_LIST) + sizeof(EFI_SIGNATURE_DATA) - 1;
+	unsigned char *tmp = (unsigned char *)PkCert + sizeof(EFI_SIGNATURE_LIST) + OFFSET_OF(EFI_SIGNATURE_DATA, SignatureData);
 	i2d_X509(cert, &tmp);
 	PkCert->SignatureListSize   = PkCertLen;
-	PkCert->SignatureSize       = (UINT32) (sizeof(EFI_SIGNATURE_DATA) - 1 + PkCertLen - sizeof(EFI_SIGNATURE_LIST));
+	PkCert->SignatureSize       = (UINT32) (PkCertLen - sizeof(EFI_SIGNATURE_LIST));
 	PkCert->SignatureHeaderSize = 0;
 	PkCert->SignatureType = EFI_CERT_X509_GUID;
 

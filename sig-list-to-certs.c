@@ -42,12 +42,17 @@ main(int argc, char *argv[])
 		char *buf;
 
 		int s = fread(&l, 1, sizeof(l), f);
-		
+
+		if (s == 0) {
+			/* read last cert */
+			break;
+		}
 
 		if (s != sizeof(l)) {
 			fprintf(stderr, "Only read %d bytes\n", s);
 			continue;
 		}
+
 		if (memcmp(&l.SignatureType, &EFI_CERT_X509_GUID, sizeof(EFI_GUID))==0) {
 			printf("X509 ");
 		} else if (memcmp(&l.SignatureType, &EFI_CERT_TYPE_PKCS7_GUID, sizeof(EFI_GUID))==0) {
@@ -58,26 +63,29 @@ main(int argc, char *argv[])
 			printf("UNKNOWN ");
 		}
 		printf("Header sls=%d, header=%d, sig=%d\n",
-		       l.SignatureListSize, l.SignatureHeaderSize, l.SignatureSize);
+		       l.SignatureListSize, l.SignatureHeaderSize, l.SignatureSize - OFFSET_OF(EFI_SIGNATURE_DATA, SignatureData));
 		buf = malloc(l.SignatureListSize - sizeof(l));
 		if (!buf) {
 			fprintf(stderr, "Out of Memory\n");
 			exit(1);
 		}
+
 		s = fread(buf, 1,  l.SignatureListSize - sizeof(l), f);
 		if (s != l.SignatureListSize - sizeof(l)) {
-			fprintf(stderr, "only read %d bytes\n", s);
+			fprintf(stderr, "only read %d bytes: ", s);
+			perror("");
 			exit(1);
 		}
+
 		d = (void *)buf;
-		buf += sizeof(*d) - 1;
+		buf += OFFSET_OF(EFI_SIGNATURE_DATA, SignatureData);
 
 		sprintf(name, "%s.%d",certfile,count++);
 		  
 
 		FILE *g = fopen(name, "w");
-		fwrite(buf, 1, l.SignatureSize - sizeof(EFI_SIGNATURE_DATA) + 1,
-		       g);
+		fwrite(buf, 1, l.SignatureSize - OFFSET_OF(EFI_SIGNATURE_DATA, SignatureData), g);
+		printf("Written %d bytes\n", l.SignatureSize - OFFSET_OF(EFI_SIGNATURE_DATA, SignatureData));
 		fclose(g);
 	}
 

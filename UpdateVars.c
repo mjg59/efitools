@@ -100,9 +100,6 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 
 	InitializeLib(image, systab);
 
-	Print(L"HERE\n");
-
-
 	status = argsplit(image, &argc, &ARGV);
 
 	if (status != EFI_SUCCESS) {
@@ -127,7 +124,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	}
 
 	if (argc != 3 ) {
-		Print(L"Usage: %s: [-g guid] [-a] key file\n", progname);
+		Print(L"Usage: %s: [-g guid] [-a] var file\n", progname);
 		return EFI_INVALID_PARAMETER;
 	}
 
@@ -161,9 +158,14 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		return status;
 	}
 
-	status = uefi_call_wrapper(RT->SetVariable, 5, buf, owner,
+	status = uefi_call_wrapper(RT->SetVariable, 5, var, owner,
 				   EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_RUNTIME_ACCESS 
 				   | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS | options,
 				   size, buf);
+
+	if (status != EFI_SUCCESS) {
+		Print(L"Failed to update variable %s: %d\n", var, status);
+		return status;
+	}
 	return EFI_SUCCESS;
 }

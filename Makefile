@@ -20,7 +20,7 @@ PK.crt KEK.crt DB.crt:
 
 .KEEP: PK.crt KEK.crt DB.crt PK.key KEK.key DB.key $(EFIFILES)
 
-LockDown.efi: PK.h KEK.h DB.h
+LockDown.o: PK.h KEK.h DB.h
 
 PK.h: PK.cer
 

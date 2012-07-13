@@ -1,5 +1,5 @@
 EFIFILES = HelloWorld.efi LockDown.efi Loader.efi ReadVars.efi UpdateVars.efi
-BINARIES = cert-to-efi-sig-list sig-list-to-certs
+BINARIES = cert-to-efi-sig-list sig-list-to-certs sign-efi-sig-list
 
 export TOPDIR	:= $(shell pwd)/
 
@@ -37,6 +37,9 @@ cert-to-efi-sig-list: cert-to-efi-sig-list.o
 	$(CC) -o $@ $< -lcrypto
 
 sig-list-to-certs: sig-list-to-certs.o
+	$(CC) -o $@ $< -lcrypto
+
+sign-efi-sig-list: sign-efi-sig-list.o
 	$(CC) -o $@ $< -lcrypto
 
 clean:

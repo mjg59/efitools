@@ -233,4 +233,17 @@ typedef struct {
   WIN_CERTIFICATE_UEFI_GUID   AuthInfo;
  } EFI_VARIABLE_AUTHENTICATION_2;
 
+///
+/// Size of AuthInfo prior to the data payload.
+///
+#define AUTHINFO_SIZE ((OFFSET_OF (EFI_VARIABLE_AUTHENTICATION, AuthInfo)) + \
+                       (OFFSET_OF (WIN_CERTIFICATE_UEFI_GUID, CertData)) + \
+                       sizeof (EFI_CERT_BLOCK_RSA_2048_SHA256))
+
+#define AUTHINFO2_SIZE(VarAuth2) ((OFFSET_OF (EFI_VARIABLE_AUTHENTICATION_2, AuthInfo)) + \
+                                  (UINTN) ((EFI_VARIABLE_AUTHENTICATION_2 *) (VarAuth2))->AuthInfo.Hdr.dwLength)
+
+#define OFFSET_OF_AUTHINFO2_CERT_DATA ((OFFSET_OF (EFI_VARIABLE_AUTHENTICATION_2, AuthInfo)) + \
+                                       (OFFSET_OF (WIN_CERTIFICATE_UEFI_GUID, CertData)))
+
 #endif

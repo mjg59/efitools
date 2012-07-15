@@ -17,6 +17,7 @@
 #include <openssl/sha.h>
 
 #include <variables.h>
+#include <guid.h>
 
 int
 main(int argc, char *argv[])
@@ -35,12 +36,7 @@ main(int argc, char *argv[])
 
 	while (argc > 1) {
 		if (strcmp("-g", argv[1]) == 0) {
-			sscanf(argv[2],
-			       "%8x-%4hx-%4hx-%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx",
-			       &vendor_guid.Data1, &vendor_guid.Data2, &vendor_guid.Data3,
-			       vendor_guid.Data4, vendor_guid.Data4 + 1, vendor_guid.Data4 + 2,
-			       vendor_guid.Data4 + 3, vendor_guid.Data4 + 4, vendor_guid.Data4 + 5,
-			       vendor_guid.Data4 + 6, vendor_guid.Data4 + 7);
+			str_to_guid(argv[2], &vendor_guid);
 			argv += 2;
 			argc -= 2;
 		} else if (strcmp("-r", argv[1]) == 0) {

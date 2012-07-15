@@ -10,11 +10,12 @@
 #include <openssl/err.h>
 
 #include <variables.h>
+#include <guid.h>
 
 int
 main(int argc, char *argv[])
 {
-  char *certfile, *efifile, *name;
+	char *certfile, *efifile, *name;
 	const char *progname = argv[0];
 
 	if (argc != 3) {
@@ -63,7 +64,8 @@ main(int argc, char *argv[])
 			printf("UNKNOWN ");
 		}
 		printf("Header sls=%d, header=%d, sig=%d\n",
-		       l.SignatureListSize, l.SignatureHeaderSize, l.SignatureSize - OFFSET_OF(EFI_SIGNATURE_DATA, SignatureData));
+		       l.SignatureListSize, l.SignatureHeaderSize, l.SignatureSize - (UINT32)OFFSET_OF(EFI_SIGNATURE_DATA, SignatureData));
+		       
 		buf = malloc(l.SignatureListSize - sizeof(l));
 		if (!buf) {
 			fprintf(stderr, "Out of Memory\n");
@@ -79,13 +81,15 @@ main(int argc, char *argv[])
 
 		d = (void *)buf;
 		buf += OFFSET_OF(EFI_SIGNATURE_DATA, SignatureData);
+		EFI_GUID *guid = &d->SignatureOwner;
 
 		sprintf(name, "%s.%d",certfile,count++);
+		printf("file %s: Guid %s\n", name, guid_to_str(guid));
 		  
 
 		FILE *g = fopen(name, "w");
 		fwrite(buf, 1, l.SignatureSize - OFFSET_OF(EFI_SIGNATURE_DATA, SignatureData), g);
-		printf("Written %d bytes\n", l.SignatureSize - OFFSET_OF(EFI_SIGNATURE_DATA, SignatureData));
+		printf("Written %d bytes\n", l.SignatureSize - (UINT32)OFFSET_OF(EFI_SIGNATURE_DATA, SignatureData));
 		fclose(g);
 	}
 

@@ -34,13 +34,13 @@ UpdateVars.so: lib/lib.a
 LockDown.so: lib/lib.a
 
 cert-to-efi-sig-list: cert-to-efi-sig-list.o
-	$(CC) -o $@ $< -lcrypto
+	$(CC) -o $@ $< -lcrypto lib
 
-sig-list-to-certs: sig-list-to-certs.o
-	$(CC) -o $@ $< -lcrypto
+sig-list-to-certs: sig-list-to-certs.o lib/lib.a
+	$(CC) -o $@ $< -lcrypto lib/lib.a
 
-sign-efi-sig-list: sign-efi-sig-list.o
-	$(CC) -o $@ $< -lcrypto
+sign-efi-sig-list: sign-efi-sig-list.o lib/lib.a
+	$(CC) -o $@ $< -lcrypto lib/lib.a
 
 clean:
 	rm -f PK.* KEK.* DB.* $(EFIFILES) $(EFISIGNED) $(BINARIES) *.o *.so

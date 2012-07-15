@@ -22,9 +22,13 @@
 int
 main(int argc, char *argv[])
 {
-	char *certfile, *efifile, *keyfile, *outfile, *str;
+	char *certfile = NULL, *efifile, *keyfile = NULL, *outfile,
+		*str, *signedinput = NULL, *timestampstr = NULL;
+	void *out;
 	const char *progname = argv[0];
-	int rsasig = 0, monotonic = 0, varlen, i;
+	unsigned char *sigbuf;
+	int rsasig = 0, monotonic = 0, varlen, i, outputforsign = 0, outlen,
+		sigsize;
 	EFI_GUID vendor_guid;
 	struct stat st;
 	wchar_t var[256];
@@ -32,7 +36,7 @@ main(int argc, char *argv[])
 		| EFI_VARIABLE_RUNTIME_ACCESS
 		| EFI_VARIABLE_BOOTSERVICE_ACCESS
 		| EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS;
-	EFI_TIME timestamp;
+	EFI_TIME timestamp = { 0 };
 
 	while (argc > 1) {
 		if (strcmp("-g", argv[1]) == 0) {
@@ -43,37 +47,55 @@ main(int argc, char *argv[])
 			rsasig = 1;
 			argv += 1;
 			argc -= 1;
-		} else if (strcmp("-c", argv[1]) == 0)  {
+		} else if (strcmp("-t", argv[1]) == 0) {
+			timestampstr = argv[2];
+			argv += 2;
+			argc -= 2;
+		} else if (strcmp("-m", argv[1]) == 0)  {
 			monotonic = 1;
 			argv += 1;
 			argc -= 1;
 			attributes &= ~EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS;
 			attributes |= EFI_VARIABLE_AUTHENTICATED_WRITE_ACCESS;
 
+		} else if (strcmp("-o", argv[1]) == 0) {
+			outputforsign = 1;
+			argv += 1;
+			argc -= 1;
+		} else if (strcmp("-i", argv[1]) == 0) {
+			signedinput = argv[2];
+			argv += 2;
+			argc -= 2;
 		} else if (strcmp("-a", argv[1]) == 0) {
 			attributes |= EFI_VARIABLE_APPEND_WRITE;
 			argv += 1;
 			argc -= 1;
+		} else if (strcmp("-k", argv[1]) == 0) {
+			keyfile = argv[2];
+			argv += 2;
+			argc -= 2;
+		} else if (strcmp("-c", argv[1]) == 0) {
+			certfile = argv[2];
+			argv += 2;
+			argc -= 2;
 		} else  {
 			break;
 		}
 	}
 
-	if (argc != 6) {
-		fprintf(stderr, "Usage: %s [-r] [-c] [-a] [-g guid] <var> <crt file> <key file> <efi sig list file> <output auth file>\n", progname);
+	if (argc != 4) {
+		fprintf(stderr, "Usage: %s [-r] [-m] [-a] [-g guid] [-o] [-i infile] [-c <crt file>] [-k <key file>] <var> <efi sig list file> <output file>\n", progname);
 		exit(1);
 	}
 
 	if (rsasig || monotonic) {
-		/* FIXME: need to do rsa signatures and monotonic payloads */
+		fprintf(stderr, "FIXME: rsa signatures and monotonic payloads are not implemented\n");
 		exit(1);
 	}
 
 	str = argv[1];
-	certfile = argv[2];
-	keyfile = argv[3];
-	efifile = argv[4];
-	outfile = argv[5];
+	efifile = argv[2];
+	outfile = argv[3];
 
 	/* Specific GUIDs for special variables */
 	if (strcmp(str, "PK") == 0 || strcmp(str, "KEK") == 0) {
@@ -84,10 +106,19 @@ main(int argc, char *argv[])
 
 	memset(&timestamp, 0, sizeof(timestamp));
 	time_t t;
-	time(&t);
-	struct tm *tm = gmtime(&t);
+	struct tm *tm, tms;
 
-	timestamp.Year = tm->tm_year + 1901;
+	if (timestampstr) {
+		strptime(timestampstr, "%c", &tms);
+		tm = &tms;
+	} else {
+		time(&t);
+		tm = gmtime(&t);
+	}
+
+	/* FIXME: currently timestamp is one year into future because of
+	 * the way we set up the secure environment  */
+	timestamp.Year = tm->tm_year + 1900 + 1;
 	timestamp.Month = tm->tm_mon;
 	timestamp.Day = tm->tm_mday;
 	timestamp.Hour = tm->tm_hour;
@@ -102,25 +133,6 @@ main(int argc, char *argv[])
 	} while (str[i++] != '\0');
 
 	varlen = (i - 1)*sizeof(wchar_t);
-
-
-        ERR_load_crypto_strings();
-        OpenSSL_add_all_digests();
-        OpenSSL_add_all_ciphers();
-
-        BIO *cert_bio = BIO_new_file(certfile, "r");
-        X509 *cert = PEM_read_bio_X509(cert_bio, NULL, NULL, NULL);
-	if (!cert) {
-		fprintf(stderr, "error reading certificate %s\n", certfile);
-		exit(1);
-	}
-
-	BIO *privkey_bio = BIO_new_file(keyfile, "r");
-	EVP_PKEY *pkey = PEM_read_bio_PrivateKey(privkey_bio, NULL, NULL, NULL);
-	if (!pkey) {
-		fprintf(stderr, "error reading private key %s\n", keyfile);
-		exit(1);
-	}
 
 	int fdefifile = open(efifile, O_RDONLY);
 	if (fdefifile == -1) {
@@ -147,21 +159,63 @@ main(int argc, char *argv[])
 
 	printf("Authentication Payload size %d\n", signbuflen);
 
+	if (outputforsign) {
+		out = signbuf;
+		outlen = signbuflen;
+		goto output;
+	}
+
+	PKCS7 *p7;
+
+	if (signedinput) {
+		struct stat sti;
+		int infile = open(signedinput, O_RDONLY);
+		if (infile == -1) {
+			fprintf(stderr, "failed to open file %s: ", signedinput);
+			perror("");
+			exit(1);
+		}
+		fstat(infile, &sti);
+		sigbuf = malloc(sti.st_size);
+		sigsize = sti.st_size;
+		read(infile, sigbuf, sigsize);
+	} else {
+		if (!keyfile || !certfile) {
+			fprintf(stderr, "Doing signing, need certificate and key\n");
+			exit(1);
+		}
+
+		ERR_load_crypto_strings();
+		OpenSSL_add_all_digests();
+		OpenSSL_add_all_ciphers();
+
+		BIO *cert_bio = BIO_new_file(certfile, "r");
+		X509 *cert = PEM_read_bio_X509(cert_bio, NULL, NULL, NULL);
+		if (!cert) {
+			fprintf(stderr, "error reading certificate %s\n", certfile);
+			exit(1);
+		}
+
+		BIO *privkey_bio = BIO_new_file(keyfile, "r");
+		EVP_PKEY *pkey = PEM_read_bio_PrivateKey(privkey_bio, NULL, NULL, NULL);
+		if (!pkey) {
+			fprintf(stderr, "error reading private key %s\n", keyfile);
+			exit(1);
+		}
+
+		BIO *bio_data = BIO_new_mem_buf(signbuf, signbuflen);
 	
-	BIO *bio_data = BIO_new_mem_buf(signbuf, signbuflen);
-	
-	PKCS7 *p7 = PKCS7_sign(NULL, NULL, NULL, bio_data, PKCS7_BINARY|PKCS7_PARTIAL);
-	const EVP_MD *md = EVP_get_digestbyname("SHA256");
-	PKCS7_sign_add_signer(p7, cert, pkey, md, PKCS7_BINARY);
-	PKCS7_final(p7, bio_data, PKCS7_BINARY);
+		p7 = PKCS7_sign(NULL, NULL, NULL, bio_data, PKCS7_BINARY|PKCS7_PARTIAL|PKCS7_DETACHED);
+		const EVP_MD *md = EVP_get_digestbyname("SHA256");
+		PKCS7_sign_add_signer(p7, cert, pkey, md, PKCS7_BINARY|PKCS7_DETACHED);
+		PKCS7_final(p7, bio_data, PKCS7_BINARY|PKCS7_DETACHED);
 
 
-	int sigsize = i2d_PKCS7(p7, NULL);
-
+		sigsize = i2d_PKCS7(p7, NULL);
+	}
 	printf("Signature of size %d\n", sigsize);
 
 	EFI_VARIABLE_AUTHENTICATION_2 *var_auth = malloc(sizeof(EFI_VARIABLE_AUTHENTICATION_2) + sigsize);
-	unsigned char *sigbuf = var_auth->AuthInfo.CertData;
 
 	var_auth->TimeStamp = timestamp;
 	var_auth->AuthInfo.CertType = EFI_CERT_TYPE_PKCS7_GUID;
@@ -169,9 +223,20 @@ main(int argc, char *argv[])
 	var_auth->AuthInfo.Hdr.wRevision = 0x0200;
 	var_auth->AuthInfo.Hdr.wCertificateType = WIN_CERT_TYPE_EFI_GUID;
 
-	i2d_PKCS7(p7, &sigbuf);
-	ERR_print_errors_fp(stdout);
+	if (signedinput) {
+		memcpy(var_auth->AuthInfo.CertData, sigbuf, sigsize);
+		sigbuf = var_auth->AuthInfo.CertData;
+	} else {
+		sigbuf = var_auth->AuthInfo.CertData;
+		i2d_PKCS7(p7, &sigbuf);
+		ERR_print_errors_fp(stdout);
+	}
 
+	out = var_auth;
+	outlen = OFFSET_OF(EFI_VARIABLE_AUTHENTICATION_2, AuthInfo.CertData) + sigsize;
+
+ output:
+	;
 	int fdoutfile = open(outfile, O_CREAT|O_WRONLY|O_TRUNC, S_IWUSR|S_IRUSR);
 	if (fdoutfile == -1) {
 		fprintf(stderr, "failed to open %s: ", outfile);
@@ -179,11 +244,15 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 	/* first we write the authentication header */
-	write(fdoutfile, var_auth, OFFSET_OF(EFI_VARIABLE_AUTHENTICATION_2, AuthInfo.CertData) + sigsize);
-	/* Then we write the payload */
-	write(fdoutfile, ptr, st.st_size);
+	write(fdoutfile, out, outlen);
+	if (!outputforsign)
+		/* Then we write the payload */
+		write(fdoutfile, ptr, st.st_size);
 	/* so now the file is complete and can be fed straight into
 	 * SetVariable() as an authenticated variable update */
+#if 0
+	write (fdoutfile, var_auth->AuthInfo.CertData, sigsize);
+#endif
 	close(fdoutfile);
 
 	return 0;

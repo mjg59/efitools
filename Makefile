@@ -22,7 +22,7 @@ PK.crt KEK.crt DB.crt:
 
 LockDown.o: PK.h KEK.h DB.h
 
-PK.h: PK.cer
+PK.h: PK.auth
 
 KEK.h: KEK.cer
 

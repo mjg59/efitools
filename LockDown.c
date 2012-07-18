@@ -52,11 +52,20 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		return efi_status;
 	}
 #endif
-	efi_status = SetSecureVariable(L"PK", PK_cer, PK_cer_len, GV_GUID);
+	/* PK must be updated with a signed copy of itself */
+	efi_status = uefi_call_wrapper(RT->SetVariable, 5, L"PK", &GV_GUID,
+				       EFI_VARIABLE_NON_VOLATILE
+				       | EFI_VARIABLE_RUNTIME_ACCESS 
+				       | EFI_VARIABLE_BOOTSERVICE_ACCESS
+				       | EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS,
+				       PK_auth_len, PK_auth);
+
+	
 	if (efi_status != EFI_SUCCESS) {
 		Print(L"Failed to enroll PK: %d\n", efi_status);
 		return efi_status;
 	}
+	Print(L"Created PK Cert\n");
 	/* enrolling the PK should put us in SetupMode; check this */
 	efi_status = uefi_call_wrapper(RT->GetVariable, 5, L"SetupMode", &GV_GUID, NULL, &DataSize, &SetupMode);
 	if (efi_status != EFI_SUCCESS) {

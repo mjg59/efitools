@@ -12,6 +12,7 @@ LDFLAGS		+= -T $(LDSCRIPT) -shared -Bsymbolic $(CRTOBJS) -L /usr/lib64
 LOADLIBES	= -lefi -lgnuefi $(shell $(CC) -print-libgcc-file-name)
 FORMAT		= efi-app-$(ARCH)
 OBJCOPY		= objcopy
+MYGUID		= 11111111-2222-3333-4444-123456789abc
 
 ifeq ($(ARCH),x86_64)
   CFLAGS += -DEFI_FUNCTION_WRAPPER
@@ -28,6 +29,15 @@ endif
 
 %.h: %.cer
 	xxd -i $< > $@
+
+%.h: %.auth
+	xxd -i $< > $@
+
+%.esl: %.crt cert-to-efi-sig-list
+	./cert-to-efi-sig-list -g $(MYGUID) $< $@
+
+%.auth: %.esl sign-efi-sig-list
+	./sign-efi-sig-list -c $*.crt -k $*.key $* $< $@
 
 %.o: %.c
 	$(CC) $(INCDIR) $(CFLAGS) $(CPPFLAGS) -c $< -o $@

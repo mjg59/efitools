@@ -33,8 +33,8 @@ ReadVars.so: lib/lib.a
 UpdateVars.so: lib/lib.a
 LockDown.so: lib/lib.a
 
-cert-to-efi-sig-list: cert-to-efi-sig-list.o
-	$(CC) -o $@ $< -lcrypto lib
+cert-to-efi-sig-list: cert-to-efi-sig-list.o lib/lib.a
+	$(CC) -o $@ $< -lcrypto lib/lib.a
 
 sig-list-to-certs: sig-list-to-certs.o lib/lib.a
 	$(CC) -o $@ $< -lcrypto lib/lib.a

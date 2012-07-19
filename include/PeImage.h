@@ -22,6 +22,8 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #ifndef __PE_IMAGE_H__
 #define __PE_IMAGE_H__
 
+#include <wincert.h>
+
 #define SIGNATURE_16(A, B)        ((A) | (B << 8))
 #define SIGNATURE_32(A, B, C, D)  (SIGNATURE_16 (A, B) | (SIGNATURE_16 (C, D) << 16))
 #define SIGNATURE_64(A, B, C, D, E, F, G, H) \
@@ -759,13 +761,6 @@ typedef union {
   EFI_TE_IMAGE_HEADER               *Te;
   EFI_IMAGE_OPTIONAL_HEADER_UNION   *Union;
 } EFI_IMAGE_OPTIONAL_HEADER_PTR_UNION;
-
-typedef struct _WIN_CERTIFICATE {
-	UINT32  dwLength;
-	UINT16  wRevision;
-	UINT16  wCertificateType;
-	//UINT8 bCertificate[ANYSIZE_ARRAY];
-} WIN_CERTIFICATE;
 
 typedef struct {
 	WIN_CERTIFICATE Hdr;

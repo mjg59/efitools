@@ -1,5 +1,6 @@
 #ifndef _INC_EFIAUTHENTICATED_H
 #define _INC_EFIAUTHENTICATED_H
+#include <wincert.h>
 //***********************************************************************
 // Signature Database
 //***********************************************************************
@@ -70,34 +71,6 @@ typedef struct {
   (EFI_GUID){								\
     0x4aafd29d, 0x68df, 0x49ee, {0x8a, 0xa9, 0x34, 0x7d, 0x37, 0x56, 0x65, 0xa7} \
   }
-
-///
-/// The WIN_CERTIFICATE structure is part of the PE/COFF specification.
-///
-typedef struct {
-  ///
-  /// The length of the entire certificate,  
-  /// including the length of the header, in bytes.                                
-  ///
-  UINT32  dwLength;
-  ///
-  /// The revision level of the WIN_CERTIFICATE 
-  /// structure. The current revision level is 0x0200.                                   
-  ///
-  UINT16  wRevision;
-  ///
-  /// The certificate type. See WIN_CERT_TYPE_xxx for the UEFI      
-  /// certificate types. The UEFI specification reserves the range of 
-  /// certificate type values from 0x0EF0 to 0x0EFF.                          
-  ///
-  UINT16  wCertificateType;
-  ///
-  /// The following is the actual certificate. The format of   
-  /// the certificate depends on wCertificateType.
-  ///
-  /// UINT8 bCertificate[ANYSIZE_ARRAY];
-  ///
-} WIN_CERTIFICATE;
 
 ///
 /// WIN_CERTIFICATE_UEFI_GUID.CertType

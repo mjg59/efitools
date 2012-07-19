@@ -18,9 +18,9 @@
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include <string.h>
-
-#include "sha256.h"
+#include <efi/efi.h>
+#include <efi/efilib.h>
+#include <sha256.h>
 
 #define GET_UINT32(n,b,i)                       \
 {                                               \
@@ -201,7 +201,7 @@ void sha256_update( sha256_context *ctx, uint8 *input, uint32 length )
 
     if( left && length >= fill )
     {
-        memcpy( (void *) (ctx->buffer + left),
+        CopyMem( (void *) (ctx->buffer + left),
                 (void *) input, fill );
         sha256_process( ctx, ctx->buffer );
         length -= fill;
@@ -218,7 +218,7 @@ void sha256_update( sha256_context *ctx, uint8 *input, uint32 length )
 
     if( length )
     {
-        memcpy( (void *) (ctx->buffer + left),
+        CopyMem( (void *) (ctx->buffer + left),
                 (void *) input, length );
     }
 }
@@ -231,7 +231,7 @@ static uint8 sha256_padding[64] =
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
-void sha256_finish( sha256_context *ctx, uint8 digest[32] )
+void sha256_finish( sha256_context *ctx, uint8 digest[SHA256_DIGEST_SIZE] )
 {
     uint32 last, padn;
     uint32 high, low;
@@ -260,110 +260,3 @@ void sha256_finish( sha256_context *ctx, uint8 digest[32] )
     PUT_UINT32( ctx->state[7], digest, 28 );
 }
 
-#ifdef TEST
-
-#include <stdlib.h>
-#include <stdio.h>
-
-/*
- * those are the standard FIPS-180-2 test vectors
- */
-
-static char *msg[] = 
-{
-    "abc",
-    "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
-    NULL
-};
-
-static char *val[] =
-{
-    "ba7816bf8f01cfea414140de5dae2223" \
-    "b00361a396177a9cb410ff61f20015ad",
-    "248d6a61d20638b8e5c026930c3e6039" \
-    "a33ce45964ff2167f6ecedd419db06c1",
-    "cdc76e5c9914fb9281a1c7e284d73e67" \
-    "f1809a48a497200e046d39ccc7112cd0"
-};
-
-int main( int argc, char *argv[] )
-{
-    FILE *f;
-    int i, j;
-    char output[65];
-    sha256_context ctx;
-    unsigned char buf[1000];
-    unsigned char sha256sum[32];
-
-    if( argc < 2 )
-    {
-        printf( "\n SHA-256 Validation Tests:\n\n" );
-
-        for( i = 0; i < 3; i++ )
-        {
-            printf( " Test %d ", i + 1 );
-
-            sha256_starts( &ctx );
-
-            if( i < 2 )
-            {
-                sha256_update( &ctx, (uint8 *) msg[i],
-                               strlen( msg[i] ) );
-            }
-            else
-            {
-                memset( buf, 'a', 1000 );
-
-                for( j = 0; j < 1000; j++ )
-                {
-                    sha256_update( &ctx, (uint8 *) buf, 1000 );
-                }
-            }
-
-            sha256_finish( &ctx, sha256sum );
-
-            for( j = 0; j < 32; j++ )
-            {
-                sprintf( output + j * 2, "%02x", sha256sum[j] );
-            }
-
-            if( memcmp( output, val[i], 64 ) )
-            {
-                printf( "failed!\n" );
-                return( 1 );
-            }
-
-            printf( "passed.\n" );
-        }
-
-        printf( "\n" );
-    }
-    else
-    {
-        if( ! ( f = fopen( argv[1], "rb" ) ) )
-        {
-            perror( "fopen" );
-            return( 1 );
-        }
-
-        sha256_starts( &ctx );
-
-        while( ( i = fread( buf, 1, sizeof( buf ), f ) ) > 0 )
-        {
-            sha256_update( &ctx, buf, i );
-        }
-
-        sha256_finish( &ctx, sha256sum );
-
-        for( j = 0; j < 32; j++ )
-        {
-            printf( "%02x", sha256sum[j] );
-        }
-
-        printf( "  %s\n", argv[1] );
-    }
-
-    return( 0 );
-}
-
-#endif

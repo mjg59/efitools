@@ -9,6 +9,8 @@
 #define uint32 unsigned long int
 #endif
 
+#define SHA256_DIGEST_SIZE 32
+
 typedef struct
 {
     uint32 total[2];

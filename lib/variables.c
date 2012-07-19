@@ -114,10 +114,14 @@ CreateTimeBasedPayload (
   DescriptorData->AuthInfo.Hdr.wRevision        = 0x0200;
   DescriptorData->AuthInfo.Hdr.wCertificateType = WIN_CERT_TYPE_EFI_GUID;
   DescriptorData->AuthInfo.CertType =  efi_cert_type;
-  
+ 
+  /* we're expecting an EFI signature list, so don't free the input since
+   * it might not be in a pool */
+#if 0
   if (Payload != NULL) {
     FreePool(Payload);
   }
+#endif
   
   *DataSize = DescriptorSize + PayloadSize;
   *Data     = NewData;
@@ -125,18 +129,22 @@ CreateTimeBasedPayload (
 }
 
 EFI_STATUS
-SetSecureVariable(CHAR16 *var, UINT8 *Data, UINTN len, EFI_GUID owner)
+SetSecureVariable(CHAR16 *var, UINT8 *Data, UINTN len, EFI_GUID owner, UINT32 options)
 {
 	EFI_SIGNATURE_LIST *Cert;
 	UINTN DataSize;
 	EFI_STATUS efi_status;
 
+	/* we expect an efi signature list rather than creating it */
+#if 0
 	efi_status = CreatePkX509SignatureList(Data, len, owner, &Cert);
 	if (efi_status != EFI_SUCCESS) {
 		Print(L"Failed to create %s certificate %d\n", var, efi_status);
 		return efi_status;
 	}
-
+#else
+	Cert = Data;
+#endif
 	DataSize = Cert->SignatureListSize;
 	Print(L"Created %s Cert of size %d\n", var, DataSize);
 	efi_status = CreateTimeBasedPayload(&DataSize, (UINT8 **)&Cert);
@@ -147,7 +155,7 @@ SetSecureVariable(CHAR16 *var, UINT8 *Data, UINTN len, EFI_GUID owner)
 
 	efi_status = uefi_call_wrapper(RT->SetVariable, 5, var, &owner,
 				       EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_RUNTIME_ACCESS 
-				       | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS,
+				       | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS | options,
 				       DataSize, Cert);
 
 	return efi_status;

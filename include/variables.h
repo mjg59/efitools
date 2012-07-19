@@ -13,4 +13,4 @@ CreateTimeBasedPayload (
   IN OUT UINT8            **Data
 			);
 EFI_STATUS
-SetSecureVariable(CHAR16 *var, UINT8 *Data, UINTN len, EFI_GUID owner);
+SetSecureVariable(CHAR16 *var, UINT8 *Data, UINTN len, EFI_GUID owner, UINT32 options);

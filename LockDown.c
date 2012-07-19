@@ -33,16 +33,28 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 
 	Print(L"Platform is in Setup Mode\n");
 
-	efi_status = SetSecureVariable(L"KEK", KEK_cer, KEK_cer_len, GV_GUID);
+	efi_status = uefi_call_wrapper(RT->SetVariable, 5, L"KEK", &GV_GUID,
+				       EFI_VARIABLE_NON_VOLATILE
+				       | EFI_VARIABLE_RUNTIME_ACCESS 
+				       | EFI_VARIABLE_BOOTSERVICE_ACCESS
+				       | EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS,
+				       KEK_auth_len, KEK_auth);
 	if (efi_status != EFI_SUCCESS) {
 		Print(L"Failed to enroll KEK: %d\n", efi_status);
 		return efi_status;
 	}
-	efi_status = SetSecureVariable(L"db", DB_cer, DB_cer_len, SIG_DB);
+	Print(L"Created KEK Cert\n");
+	efi_status = uefi_call_wrapper(RT->SetVariable, 5, L"db", &SIG_DB,
+				       EFI_VARIABLE_NON_VOLATILE
+				       | EFI_VARIABLE_RUNTIME_ACCESS 
+				       | EFI_VARIABLE_BOOTSERVICE_ACCESS
+				       | EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS,
+				       DB_auth_len, DB_auth);
 	if (efi_status != EFI_SUCCESS) {
 		Print(L"Failed to enroll db: %d\n", efi_status);
 		return efi_status;
 	}
+	Print(L"Created db Cert\n");
 #if 0
 	/* testing revocation ... this will revoke the certificate
 	 * we just enrolled in db */

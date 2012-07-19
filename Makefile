@@ -24,9 +24,9 @@ LockDown.o: PK.h KEK.h DB.h
 
 PK.h: PK.auth
 
-KEK.h: KEK.cer
+KEK.h: KEK.auth
 
-DB.h: DB.cer
+DB.h: DB.auth
 
 Loader.so: lib/lib.a
 ReadVars.so: lib/lib.a

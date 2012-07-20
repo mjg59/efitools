@@ -7,6 +7,7 @@
 #include <pecoff.h>
 #include <sha256.h>
 #include <variables.h>
+#include <console.h>
 #include <efiauthenticated.h>
 
 EFI_GUID GV_GUID = EFI_GLOBAL_VARIABLE;
@@ -28,19 +29,34 @@ ImageAddress (void *image, int size, unsigned int address)
 }
 
 /* get the user's permission to boot the image */
-int PenguinSplash(void)
+int ask_to_boot(void)
 {
-	Print(L"Ask permission to run the binary\n");
-
-	return 1;
+	return console_yes_no( (CHAR16 *[]) {
+		L"WARNING: This Binary is unsigned",
+		L"",
+		L"Are you sure you wish to run an unsigned binary",
+		L"in a secure environment?",
+		L"",
+		L"To avoid this question in future place the platform into setup mode",
+		L"See http://www.linuxfoundation.org/uefi-setup-mode",
+		L"And reboot.",
+		NULL,
+	});
 }
 /* Get the user's permission to install the image signature */
 static int
 install_keys(void)
 {
-	Print(L"Asking about installing keys\n");
-
-	return 1;
+	return console_yes_no( (CHAR16 *[]){ 
+		L"You are in Setup Mode",
+		L"",
+		L"Do you wish me to install the signature",
+		L"of the binary into the allowed signatures database?",
+		L"",
+		L"If you say \"yes\" here, the platform will no longer ask permission",
+		L"to run the binary on every boot",
+		NULL
+	});
 }
 
 EFI_STATUS
@@ -101,7 +117,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	}
 
 	if (SecureBoot) {
-		if (PenguinSplash() == 0) {
+		if (ask_to_boot() == 0) {
 			/* user told us not to boot this */
 			Print(L"Refusing to boot %s\n", loader);
 			return EFI_ACCESS_DENIED;

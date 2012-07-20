@@ -45,8 +45,9 @@ int ask_to_boot(void)
 }
 /* Get the user's permission to install the image signature */
 static int
-install_keys(void)
+ask_install_keys(void)
 {
+	/* first check to see if the key is already present */
 	return console_yes_no( (CHAR16 *[]){ 
 		L"You are in Setup Mode",
 		L"",
@@ -63,7 +64,7 @@ EFI_STATUS
 efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 {
 	EFI_STATUS efi_status;
-	UINT8 SecureBoot = 0, SetupMode = 0, addkey = 0;
+	UINT8 SecureBoot = 0, SetupMode = 0;
 	UINTN DataSize = sizeof(SecureBoot);
 	EFI_FILE *file;
 	void *buffer;
@@ -83,10 +84,9 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	} else	if (!SecureBoot) {
 		Print(L"Secure Boot Disabled\n");
 		DataSize = sizeof(SetupMode);
-		uefi_call_wrapper(RT->GetVariable, 5, L"SetupMode", &GV_GUID, NULL, &DataSize, &SetupMode);
-		if (SetupMode)
-			addkey = install_keys();
 	}
+
+	uefi_call_wrapper(RT->GetVariable, 5, L"SetupMode", &GV_GUID, NULL, &DataSize, &SetupMode);
 
 	efi_status = uefi_call_wrapper(BS->HandleProtocol, 3, image,
 				       &IMAGE_PROTOCOL, &li);
@@ -102,7 +102,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		return efi_status;
 	}
 
-	if (!addkey) {
+	if (!SetupMode) {
 		efi_status = uefi_call_wrapper(BS->LoadImage, 6, FALSE, image,
 					       loadpath, NULL, 0, &loader_handle);
 		if (efi_status == EFI_SUCCESS) {
@@ -144,7 +144,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 
 	/* We're in setup mode and the User asked us to add the signature
 	 * of this binary to the authorized signatures database */
-	if (addkey) {
+	if (SetupMode) {
 		sha256_context ctx;
 		UINT8 hash[SHA256_DIGEST_SIZE];
 		void *hashbase;
@@ -174,8 +174,6 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		sha256_update(&ctx, hashbase, hashsize);
 		sum_of_bytes = context.PEHdr->Pe32Plus.OptionalHeader.SizeOfHeaders;
 		section = (EFI_IMAGE_SECTION_HEADER *) ((char *)context.PEHdr + sizeof (UINT32) + sizeof (EFI_IMAGE_FILE_HEADER) + context.PEHdr->Pe32.FileHeader.SizeOfOptionalHeader);
-
-		Print(L"Number of Sections: %d\n", context.PEHdr->Pe32.FileHeader.NumberOfSections);
 
 		/* Sort the section headers by their data pointers */
 		for (i = 0; i < context.PEHdr->Pe32.FileHeader.NumberOfSections; i++) {
@@ -210,23 +208,55 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 			Print(L"%02x", hash[i]);
 		Print(L"\n");
 
-		UINT8 sig[sizeof(EFI_SIGNATURE_LIST) + sizeof(EFI_SIGNATURE_DATA) - 1 + SHA256_DIGEST_SIZE];
-		EFI_SIGNATURE_LIST *l = (void *)sig;
-		EFI_SIGNATURE_DATA *d = (void *)sig + sizeof(EFI_SIGNATURE_LIST);
-		SetMem(sig, 0, sizeof(sig));
-		l->SignatureType = EFI_CERT_SHA256_GUID;
-		l->SignatureListSize = sizeof(sig);
-		l->SignatureSize = 16 +32; /* UEFI defined */
-		CopyMem(&d->SignatureData, hash, sizeof(hash));
+		UINT8 *Data = NULL;
 
-		efi_status = SetSecureVariable(L"db", sig, sizeof(sig), SIG_DB, EFI_VARIABLE_APPEND_WRITE);
-		if (efi_status != EFI_SUCCESS) {
-			Print(L"Failed to add signature to db: %s\n", efi_status);
-			return efi_status;
+		DataSize = 0;
+		efi_status = uefi_call_wrapper(RT->GetVariable, 5, L"db", &SIG_DB, NULL, &DataSize, NULL);
+		if (efi_status != EFI_BUFFER_TOO_SMALL)
+			goto ask;
+
+		Data = AllocatePool(DataSize);
+		if (!Data)
+			goto ask;
+
+		efi_status = uefi_call_wrapper(RT->GetVariable, 5, L"db", &SIG_DB, NULL, &DataSize, Data);
+		if (efi_status != EFI_SUCCESS)
+			goto ask;
+
+		EFI_SIGNATURE_LIST *CertList;
+
+		for (CertList = (EFI_SIGNATURE_LIST *) Data;
+		     DataSize > 0
+		     && DataSize >= CertList->SignatureListSize;
+		     DataSize -= CertList->SignatureListSize,
+		     CertList = (EFI_SIGNATURE_LIST *) ((UINT8 *) CertList + CertList->SignatureListSize)) {
+			if (CompareGuid(&CertList->SignatureType, &EFI_CERT_SHA256_GUID) != 0)
+				continue;
+			EFI_SIGNATURE_DATA *Cert  = (EFI_SIGNATURE_DATA *) ((UINT8 *) CertList + sizeof (EFI_SIGNATURE_LIST) + CertList->SignatureHeaderSize);
+			if (CompareMem (Cert->SignatureData, hash, SHA256_DIGEST_SIZE) == 0)
+				goto dont_ask;
 		}
-	}
+	ask:
+		if (ask_install_keys()) {
+			UINT8 sig[sizeof(EFI_SIGNATURE_LIST) + sizeof(EFI_SIGNATURE_DATA) - 1 + SHA256_DIGEST_SIZE];
+			EFI_SIGNATURE_LIST *l = (void *)sig;
+			EFI_SIGNATURE_DATA *d = (void *)sig + sizeof(EFI_SIGNATURE_LIST);
+			SetMem(sig, 0, sizeof(sig));
+			l->SignatureType = EFI_CERT_SHA256_GUID;
+			l->SignatureListSize = sizeof(sig);
+			l->SignatureSize = 16 +32; /* UEFI defined */
+			CopyMem(&d->SignatureData, hash, sizeof(hash));
 
-	Print(L"Image size %d\n", context.ImageSize);
+			efi_status = SetSecureVariable(L"db", sig, sizeof(sig), SIG_DB, EFI_VARIABLE_APPEND_WRITE);
+			if (efi_status != EFI_SUCCESS) {
+				Print(L"Failed to add signature to db: %s\n", efi_status);
+				return efi_status;
+			}
+		}
+	dont_ask:
+		if (Data)
+			FreePool(Data);
+	}
 
 	efi_status = pecoff_relocate(&context, &buffer);
 	if (efi_status != EFI_SUCCESS) {

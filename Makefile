@@ -10,6 +10,16 @@ EFISIGNED = $(patsubst %.efi,%-db-signed.efi,$(EFIFILES)) \
 
 all: $(EFISIGNED) $(BINARIES) $(MANPAGES)
 
+install: all
+	$(INSTALL) -m 755 -d $(MANDIR)
+	$(INSTALL) -m 644 $(MANPAGES) $(MANDIR)
+	$(INSTALL) -m 755 -d $(EFIDIR)
+	$(INSTALL) -m 755 $(EFIFILES) $(EFIDIR)
+	$(INSTALL) -m 755 -d $(BINDIR)
+	$(INSTALL) -m 755 $(BINARIES) $(BINDIR)
+	$(INSTALL) -m 755 -d $(DOCDIR)
+	$(INSTALL) -m 644 README COPYING $(DOCDIR)
+
 lib/lib.a: FORCE
 	$(MAKE) -C lib
 

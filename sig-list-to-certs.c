@@ -19,7 +19,7 @@ main(int argc, char *argv[])
 	const char *progname = argv[0];
 
 	if (argc != 3) {
-		fprintf(stderr, "Usage: %s <efi sig list file> <cert file base name>\n", progname);
+		printf("Usage: %s <efi sig list file> <cert file base name>\n", progname);
 		exit(1);
 	}
 

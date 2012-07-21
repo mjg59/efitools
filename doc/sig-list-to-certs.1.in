@@ -1,0 +1,49 @@
+[name]
+sig-list-to-certs - tool for converting EFI signature lists
+back to openssl certificates
+
+[description]
+
+Takes <efi sig list file> and converts it to a set of DER
+format openssl certificates in <cert file base name>.n
+(where n runs from 0 to the number of certificates in the
+file)
+
+[examples]
+
+To see what certificates your UEFI system currently has, you
+can run the dmpstore command to print them to a file
+
+dmpstore PK > PK.uc16
+
+This file isn't readily readable on a standard unix system
+because it's in UC-16 format, so convert it to ordinary text
+
+iconv -f utf-16 PK.uc16 > PK.txt
+
+Now remove the header which says something like
+
+ Dump Variable pk
+ Variable NV+RT+BS 'Efi:PK' DataSize = 2DA
+
+Leaving only the hex dump.  This can then be converted to an
+EFI signature list by xxd
+
+xxd -r PK.txt > PK.esl
+
+and you can now extract openssl readable certificates from
+this
+
+sig-list-to-certs PK.esl PK
+
+Which will print some information like
+
+ X509 Header sls=730, header=0, sig=686
+ file PK.0: Guid 77fa9abd-0359-4d32-4d60-28f4e78f784b
+ Written 686 bytes
+
+And finally, you can see the certificate in text format
+
+openssl x509 -text -inform DER -in PK.0
+
+Assuming it's an X509 certificate

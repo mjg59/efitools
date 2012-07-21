@@ -6,7 +6,11 @@
 *.crt
 *.csr
 *.cer
-PK.*
-KEK.*
-DB.*
+*.auth
+PK.h
+KEK.h
+DB.h
 *~
+cert-to-efi-sig-list
+sig-list-to-certs
+sign-efi-sig-list

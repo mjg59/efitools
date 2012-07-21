@@ -11,7 +11,7 @@ EFISIGNED = $(patsubst %.efi,%-db-signed.efi,$(EFIFILES)) \
 all: $(EFISIGNED) $(BINARIES)
 
 lib/lib.a: FORCE
-	make -C lib
+	$(MAKE) -C lib
 
 .SUFFIXES: .crt
 
@@ -44,6 +44,7 @@ sign-efi-sig-list: sign-efi-sig-list.o lib/lib.a
 
 clean:
 	rm -f PK.* KEK.* DB.* $(EFIFILES) $(EFISIGNED) $(BINARIES) *.o *.so
+	$(MAKE) -C lib clean
 
 FORCE:
 

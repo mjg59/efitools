@@ -27,9 +27,6 @@ endif
 	# check we have no undefined symbols
 	nm -D $@ | grep ' U ' && exit 1 || exit 0
 
-%.h: %.cer
-	xxd -i $< > $@
-
 %.h: %.auth
 	xxd -i $< > $@
 

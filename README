@@ -1,0 +1,26 @@
+How to use these files
+
+simply typing make will build you everything including sample certificates for
+PK, KEK and db.
+
+The prerequisites are the standard development environment, gnu-efi version
+3.0q or later, help2man and sbsigntools.
+
+There will be one file called LockDown.efi.  If run on your efi platform in
+Setup Mode, this binary will *replace* all the values in the PK, KEK and db
+variables with the ones you just generated and place the platform back into
+User Mode (booting securely).  If you don't want to replace all the variables,
+take a dump of your current variables, see sig-list-to-cert(1), and add them
+to the EFI signature list files before creating LockDown.efi
+
+Say you want to concatenate an existing platform-db.esl file, do this:
+
+make DB.esl
+cat platform.esl DB.esl > newDB.esl
+mv newDB.esl DB.esl
+
+and then make LockDown.efi in the usual way.
+
+All of the EFI programs are also generated in signed form (signed by both db
+and KEK).
+

@@ -1,0 +1,45 @@
+[name]
+sign-efi-sig-list - signing tool for secure variables as EFI Signature Lists
+
+[examples]
+
+To sign a simple append update to db which has been prepared
+as an EFI Signature List in DB.esl and output the result
+with the authentication header in DB.auth
+
+sign-efi-sig-list -a -c KEK.crt -k KEK.key db DB.esl DB.auth
+
+To do a detached signature in the same way
+
+sign-efi-sig-list -a -t 'Jul 21 09:39:37 BST 2012' -o db DB.esl DB.forsig
+
+Now sign the DB.forsig file in the standard openssl way.
+Note that the standards require sha256 as the signature algorithm
+
+openssl smime -sign -binary -in DB.forsig -out DB.signed -signer KEK.crt -inkey KEK.key -outform DER -md sha256
+
+Which produces a detached PKCS7 signature in DB.signed.  Now
+feed this back into the program remembering to keep the same
+timestamp (and the -a flag):
+
+sign-efi-sig-list -a -i DB.signed -t 'Jul 21 09:39:37 BST 2012' db DB.auth
+
+To delete a key, simply sign an empty EFI signature list
+file, so to produce an variable update that will delete the
+PK:
+
+> null.esl
+
+And then sign it in the standard way (must not be an append
+write update):
+
+sign-efi-sig-list -c PK.crt -k PK.key PK null.esl PK.auth
+
+Once you have the .auth file conveyed to the UEFI platform,
+you can use the UpdateVars.efi program to apply it
+
+UpdateVars [-a] db DB.auth
+
+Where the -a flag must be present if the DB.auth file was
+created as an append write update and absent if its
+replacing the variable.

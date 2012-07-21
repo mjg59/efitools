@@ -8,7 +8,7 @@ include Make.rules
 EFISIGNED = $(patsubst %.efi,%-db-signed.efi,$(EFIFILES)) \
 	$(patsubst %.efi,%-kek-signed.efi,$(EFIFILES))
 
-all: $(EFISIGNED) $(BINARIES)
+all: $(EFISIGNED) $(BINARIES) $(MANPAGES)
 
 lib/lib.a: FORCE
 	$(MAKE) -C lib
@@ -44,6 +44,7 @@ sign-efi-sig-list: sign-efi-sig-list.o lib/lib.a
 
 clean:
 	rm -f PK.* KEK.* DB.* $(EFIFILES) $(EFISIGNED) $(BINARIES) *.o *.so
+	rm -f doc/*.1
 	$(MAKE) -C lib clean
 
 FORCE:

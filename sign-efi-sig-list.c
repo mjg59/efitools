@@ -19,6 +19,42 @@
 #include <variables.h>
 #include <guid.h>
 
+static void
+usage(const char *progname)
+{
+	printf("Usage: %s [-r] [-m] [-a] [-g <guid>] [-o] [-t <timestamp>] [-i <infile>] [-c <crt file>] [-k <key file>] <var> <efi sig list file> <output file>\n", progname);
+}
+
+void
+version(const char *progname)
+{
+	printf("%s 0.1\n", progname);
+}
+
+static int help(const char *progname)
+{
+	usage(progname);
+	printf("Produce an output file with an authentication header for direct\n"
+	       "update to a secure variable.  This output may be signed by the usual keys directly\n"
+	       "or may be split for external signing using the -o and -i options.\n\n"
+	       "Options:\n"
+	       "\t-r               the certificate is rsa2048 rather than x509 [UNIMPLEMENTED]\n"
+	       "\t-m               Use a monotonic count instead of a timestamp [UNIMPLEMENTED]\n"
+	       "\t-a               Prepare the variable for APPEND_WRITE rather than replacement\n"
+	       "\t-o               Do not sign, but output a file of the exact bundle to be signed\n"
+	       "\t-t <timestamp>   Use <timestamp> as the timestamp of the timed variable update\n"
+	       "\t                 If not present, then the timestamp will be taken from system\n"
+	       "\t                 time.  Note you must use this option when doing detached\n"
+	       "\t                 signing otherwise the signature will be incorrect because\n"
+	       "\t                 of timestamp mismatches.\n"
+	       "\t-i <infile>        take a detached signature (in PEM format) of the bundle\n"
+	       "\t                 produced by -o and complete the creation of the update\n"
+	       "\t-g <guid>        Use <guid> as the signature owner GUID\n"
+	       "\t-c <crt>         <crt> is the file containing the signing certificate in PEM format\n"
+	       "\t-k <key>         <key> is the file containing the key for <crt> in PEM format\n"
+	       );
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -39,7 +75,13 @@ main(int argc, char *argv[])
 	EFI_TIME timestamp = { 0 };
 
 	while (argc > 1) {
-		if (strcmp("-g", argv[1]) == 0) {
+		if (strcmp("--version", argv[1]) == 0) {
+			version(progname);
+			exit(0);
+		} else if (strcmp("--help", argv[1]) == 0) {
+			help(progname);
+			exit(0);
+		} else if (strcmp("-g", argv[1]) == 0) {
 			str_to_guid(argv[2], &vendor_guid);
 			argv += 2;
 			argc -= 2;
@@ -84,7 +126,7 @@ main(int argc, char *argv[])
 	}
 
 	if (argc != 4) {
-		fprintf(stderr, "Usage: %s [-r] [-m] [-a] [-g guid] [-o] [-i infile] [-c <crt file>] [-k <key file>] <var> <efi sig list file> <output file>\n", progname);
+		usage(progname);
 		exit(1);
 	}
 

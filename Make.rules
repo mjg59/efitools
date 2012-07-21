@@ -1,4 +1,6 @@
 EFISIGNED = $(patsubst %.efi,%-signed.efi,$(EFIFILES))
+MANPAGES = $(patsubst doc/%.1.in,doc/%.1,$(wildcard doc/*.1.in))
+HELP2MAN = help2man
 ARCH	= $(shell uname -m)
 INCDIR	   = -I$(TOPDIR)include/ -I/usr/include/efi -I/usr/include/efi/$(ARCH) -I/usr/include/efi/protocol
 CPPFLAGS   = -DCONFIG_$(ARCH)
@@ -56,3 +58,6 @@ endif
 
 %.a:
 	ar rcv $@ $^
+
+doc/%.1: doc/%.1.in %
+	$(HELP2MAN) --no-info -i $< -o $@ $*

@@ -43,3 +43,8 @@ UpdateVars [-a] db DB.auth
 Where the -a flag must be present if the DB.auth file was
 created as an append write update and absent if its
 replacing the variable.
+
+[see also]
+
+cert-to-efi-sig-list(1) for details on how to produce EFI
+signature lists.

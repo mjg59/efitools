@@ -11,6 +11,34 @@
 
 #include <variables.h>
 
+static void
+version(const char *progname)
+{
+	printf("%s 0.1", progname);
+}
+
+static void
+usage(const char *progname)
+{
+	printf("Usage: %s [-g <guid>] [-r] <crt file> <efi sig list file>\n", progname);
+}
+
+static void
+help(const char * progname)
+{
+	usage(progname);
+	printf("Take an input certificate (in PEM format) and convert it to an EFI\n"
+	       "signature list file containing only that single certificate\n\n"
+	       "Options:\n"
+	       "\t-r               The file contains an RSA2048 certificate instead of the\n"
+	       "\t                 Default X509 format [UNIMPLEMENTED]\n"
+	       "\t-g <guid>        Use <guid> as the owner of the signature. If this is not\n"
+	       "\t                 supplied, an all zero guid will be used\n"
+
+	       );
+	
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -20,7 +48,13 @@ main(int argc, char *argv[])
 	EFI_GUID owner = { 0 };
 
 	while (argc > 1) {
-		if (strcmp("-g", argv[1]) == 0) {
+		if (strcmp("--version", argv[1]) == 0) {
+			version(progname);
+			exit(0);
+		} else if (strcmp("--help", argv[1]) == 0) {
+			help(progname);
+			exit(0);
+		} else if (strcmp("-g", argv[1]) == 0) {
 			str_to_guid(argv[2], &owner);
 			argv += 2;
 			argc -= 2;
@@ -35,7 +69,7 @@ main(int argc, char *argv[])
 	  
 
 	if (argc != 3) {
-		fprintf(stderr, "Usage: %s [-g <guid>] [-r] <crt file> <efi sig list file>\n", progname);
+
 		exit(1);
 	}
 

@@ -1,0 +1,26 @@
+[name]
+cert-to-efi-sig-list - tool for converting openssl certificates to EFI signature lists
+
+[examples]
+
+To take a standard X509 certificate in PEM format and
+produce an output EFI signature list file, simply do
+
+cert-to-efi-sig-list PK.crt PK.esl
+
+Note that the format of EFI signature list files is such
+that they can simply be concatenated to produce a file with
+multiple signatures:
+
+cat PK1.esl PK2.esl > PK.esl
+
+If your platform has a setup mode key manipulation ability,
+the keys will often only be displayed by GUID, so using the
+-g option to give your keys recognisable GUIDs will be
+useful if you plan to manage lots of keys.
+
+[see also]
+
+sign-efi-sig-list(1) for details on how to create an
+authenticated update to EFI secure variables when the EFI
+system is in user mode.

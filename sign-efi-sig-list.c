@@ -25,13 +25,14 @@ usage(const char *progname)
 	printf("Usage: %s [-r] [-m] [-a] [-g <guid>] [-o] [-t <timestamp>] [-i <infile>] [-c <crt file>] [-k <key file>] <var> <efi sig list file> <output file>\n", progname);
 }
 
-void
+static void
 version(const char *progname)
 {
 	printf("%s 0.1\n", progname);
 }
 
-static int help(const char *progname)
+static void
+help(const char *progname)
 {
 	usage(progname);
 	printf("Produce an output file with an authentication header for direct\n"

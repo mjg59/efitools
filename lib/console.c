@@ -168,40 +168,53 @@ console_print_box(CHAR16 *str_arr[], int highlight)
 	uefi_call_wrapper(co->SetAttribute, 2, co, SavedConsoleMode.Attribute);
 }
 
-static void
-console_print_yes_no_box(int highlight)
-{
-	console_print_box_at((CHAR16 *[]) {
-			L"No",
-			L"Yes",
-			NULL
-				}, highlight, -8, -4, 8, 4, 0);
-}
-
-
 int
-console_yes_no(CHAR16 *str_arr[])
+console_select(CHAR16 *title[], CHAR16* selectors[], int align)
 {
 	SIMPLE_TEXT_OUTPUT_MODE SavedConsoleMode;
 	SIMPLE_TEXT_OUTPUT_INTERFACE *co = ST->ConOut;
 	EFI_INPUT_KEY k;
-	int yesno = 0;
+	int selector = 0;
+	int selector_lines = count_lines(selectors);
+	int selector_max_cols = 0;
+	int i, offs_col, offs_row, size_cols, size_rows;
+
+	for (i = 0; i < selector_lines; i++) {
+		int len = StrLen(selectors[i]);
+
+		if (len > selector_max_cols)
+			selector_max_cols = len;
+	}
+
+	offs_col = - selector_max_cols - 4;
+	offs_row = - selector_lines - 4;
+	size_cols = selector_max_cols + 4;
+	size_rows = selector_lines + 2;
 
 	CopyMem(&SavedConsoleMode, co->Mode, sizeof(SavedConsoleMode));
 	uefi_call_wrapper(co->EnableCursor, 2, co, FALSE);
 	uefi_call_wrapper(co->SetAttribute, 2, co, EFI_LIGHTGRAY | EFI_BACKGROUND_BLUE);
 
-	console_print_box_at(str_arr, -1, 0, 0, -1, -1, 1);
+	console_print_box_at(title, -1, 0, 0, -1, -1, 1);
 
-	console_print_yes_no_box(yesno);
+	console_print_box_at(selectors, selector, offs_col, offs_row,
+			     size_cols, size_rows, 0);
+
 	do {
 		k = console_get_keystroke();
 
-		if (k.ScanCode == SCAN_UP && yesno == 1)
-			yesno = 0;
-		else if (k.ScanCode == SCAN_DOWN && yesno == 0)
-			yesno = 1;
-		console_print_yes_no_box(yesno);
+		if (k.ScanCode == SCAN_ESC) {
+			selector = -1;
+			break;
+		}
+
+		if (k.ScanCode == SCAN_UP && selector > 0)
+			selector--;
+		else if (k.ScanCode == SCAN_DOWN && selector < selector_lines - 1)
+			selector++;
+
+		console_print_box_at(selectors, selector, offs_col, offs_row,
+				     size_cols, size_rows, 0);
 	} while (!(k.ScanCode == SCAN_NULL
 		   && k.UnicodeChar == CHAR_CARRIAGE_RETURN));
 
@@ -211,5 +224,12 @@ console_yes_no(CHAR16 *str_arr[])
 	uefi_call_wrapper(co->SetCursorPosition, 3, co, SavedConsoleMode.CursorColumn, SavedConsoleMode.CursorRow);
 	uefi_call_wrapper(co->SetAttribute, 2, co, SavedConsoleMode.Attribute);
 
-	return yesno;
+	return selector;
+}
+
+
+int
+console_yes_no(CHAR16 *str_arr[])
+{
+	return console_select(str_arr, (CHAR16 *[]){ L"No", L"Yes", NULL }, 0);
 }

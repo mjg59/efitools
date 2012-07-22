@@ -1,6 +1,8 @@
 #include <guid.h>
 #include <stdio.h>
 
+#ifndef BUILD_EFI
+/* EFI has %g for this, so it's only needed in platform c */
 const char *guid_to_str(EFI_GUID *guid)
 {
 	static char str[256];
@@ -16,9 +18,21 @@ const char *guid_to_str(EFI_GUID *guid)
 
 void str_to_guid(const char *str, EFI_GUID *guid)
 {
-	sscanf(str, "%8x-%4hx-%4hx-%2hhx%2hhx-%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx",
+  sscanf(str, "%8x-%4hx-%4hx-%2hhx%2hhx-%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx",
 	       &guid->Data1, &guid->Data2, &guid->Data3,
 	       guid->Data4, guid->Data4 + 1, guid->Data4 + 2,
 	       guid->Data4 + 3, guid->Data4 + 4, guid->Data4 + 5,
 	       guid->Data4 + 6, guid->Data4 + 7);
 }
+#endif
+
+/* all the necessary guids */
+EFI_GUID GV_GUID = EFI_GLOBAL_VARIABLE;
+EFI_GUID SIG_DB = { 0xd719b2cb, 0x3d3a, 0x4596, {0xa3, 0xbc, 0xda, 0xd0,  0xe, 0x67, 0x65, 0x6f }};
+
+EFI_GUID X509_GUID =   { 0xa5c059a1, 0x94e4, 0x4aa7, {0x87, 0xb5, 0xab, 0x15, 0x5c, 0x2b, 0xf0, 0x72} };
+EFI_GUID RSA2048_GUID = { 0x3c5766e8, 0x269c, 0x4e34, {0xaa, 0x14, 0xed, 0x77, 0x6e, 0x85, 0xb3, 0xb6} };
+EFI_GUID PKCS7_GUID = { 0x4aafd29d, 0x68df, 0x49ee, {0x8a, 0xa9, 0x34, 0x7d, 0x37, 0x56, 0x65, 0xa7} };
+EFI_GUID IMAGE_PROTOCOL = LOADED_IMAGE_PROTOCOL;
+EFI_GUID SIMPLE_FS_PROTOCOL = SIMPLE_FILE_SYSTEM_PROTOCOL;
+EFI_GUID EFI_CERT_SHA256_GUID  = { 0xc1c41626, 0x504c, 0x4092, { 0xac, 0xa9, 0x41, 0xf9, 0x36, 0x93, 0x43, 0x28 } };

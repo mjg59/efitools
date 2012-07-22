@@ -9,13 +9,7 @@
 #include <variables.h>
 #include <console.h>
 #include <efiauthenticated.h>
-
-EFI_GUID GV_GUID = EFI_GLOBAL_VARIABLE;
-EFI_GUID IMAGE_PROTOCOL = LOADED_IMAGE_PROTOCOL;
-EFI_GUID SIMPLE_FS_PROTOCOL = SIMPLE_FILE_SYSTEM_PROTOCOL;
-EFI_GUID EFI_CERT_SHA256_GUID  = { 0xc1c41626, 0x504c, 0x4092, { 0xac, 0xa9, 0x41, 0xf9, 0x36, 0x93, 0x43, 0x28 } };
-EFI_GUID SIG_DB = { 0xd719b2cb, 0x3d3a, 0x4596, {0xa3, 0xbc, 0xda, 0xd0,  0xe, 0x67, 0x65, 0x6f }};
-
+#include <guid.h>
 
 CHAR16 *loader = L"elilo.efi";
 

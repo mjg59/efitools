@@ -46,6 +46,9 @@ endif
 %.o: %.c
 	$(CC) $(INCDIR) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
+%.efi.o: %.c
+	$(CC) $(INCDIR) $(CFLAGS) $(CPPFLAGS) -DBUILD_EFI -c $< -o $@
+
 %.cer: %.crt
 	openssl x509 -in $< -out $@ -outform DER
 

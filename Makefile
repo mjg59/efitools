@@ -20,8 +20,8 @@ install: all
 	$(INSTALL) -m 755 -d $(DOCDIR)
 	$(INSTALL) -m 644 README COPYING $(DOCDIR)
 
-lib/lib.a: FORCE
-	$(MAKE) -C lib
+lib/lib.a lib/lib-efi.a: FORCE
+	$(MAKE) -C lib $(notdir $@)
 
 .SUFFIXES: .crt
 
@@ -38,10 +38,10 @@ KEK.h: KEK.auth
 
 DB.h: DB.auth
 
-Loader.so: lib/lib.a
-ReadVars.so: lib/lib.a
-UpdateVars.so: lib/lib.a
-LockDown.so: lib/lib.a
+Loader.so: lib/lib-efi.a
+ReadVars.so: lib/lib-efi.a
+UpdateVars.so: lib/lib-efi.a
+LockDown.so: lib/lib-efi.a
 
 cert-to-efi-sig-list: cert-to-efi-sig-list.o lib/lib.a
 	$(CC) -o $@ $< -lcrypto lib/lib.a

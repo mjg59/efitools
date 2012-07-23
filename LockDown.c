@@ -56,7 +56,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 #if 0
 	/* testing revocation ... this will revoke the certificate
 	 * we just enrolled in db */
-	efi_status = SetSecureVariable(L"dbx", DB_cer, DB_cer_len, SIG_DB);
+	efi_status = SetSecureVariable(L"dbx", DB_cer, DB_cer_len, SIG_DB, 0);
 	if (efi_status != EFI_SUCCESS) {
 		Print(L"Failed to enroll dbx: %d\n", efi_status);
 		return efi_status;

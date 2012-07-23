@@ -241,7 +241,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 			l->SignatureSize = 16 +32; /* UEFI defined */
 			CopyMem(&d->SignatureData, hash, sizeof(hash));
 
-			efi_status = SetSecureVariable(L"db", sig, sizeof(sig), SIG_DB, EFI_VARIABLE_APPEND_WRITE);
+			efi_status = SetSecureVariable(L"db", sig, sizeof(sig), SIG_DB, EFI_VARIABLE_APPEND_WRITE, 0);
 			if (efi_status != EFI_SUCCESS) {
 				Print(L"Failed to add signature to db: %s\n", efi_status);
 				return efi_status;

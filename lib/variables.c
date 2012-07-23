@@ -129,22 +129,22 @@ CreateTimeBasedPayload (
 }
 
 EFI_STATUS
-SetSecureVariable(CHAR16 *var, UINT8 *Data, UINTN len, EFI_GUID owner, UINT32 options)
+SetSecureVariable(CHAR16 *var, UINT8 *Data, UINTN len, EFI_GUID owner, UINT32 options, int createtimebased)
 {
 	EFI_SIGNATURE_LIST *Cert;
 	UINTN DataSize;
 	EFI_STATUS efi_status;
 
-	/* we expect an efi signature list rather than creating it */
-#if 0
-	efi_status = CreatePkX509SignatureList(Data, len, owner, &Cert);
-	if (efi_status != EFI_SUCCESS) {
-		Print(L"Failed to create %s certificate %d\n", var, efi_status);
-		return efi_status;
+	if (createtimebased) {
+		efi_status = CreatePkX509SignatureList(Data, len, owner, &Cert);
+		if (efi_status != EFI_SUCCESS) {
+			Print(L"Failed to create %s certificate %d\n", var, efi_status);
+			return efi_status;
+		}
+	} else {
+		/* we expect an efi signature list rather than creating it */
+		Cert = Data;
 	}
-#else
-	Cert = Data;
-#endif
 	DataSize = Cert->SignatureListSize;
 	Print(L"Created %s Cert of size %d\n", var, DataSize);
 	efi_status = CreateTimeBasedPayload(&DataSize, (UINT8 **)&Cert);

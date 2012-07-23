@@ -121,7 +121,6 @@ simple_file_open(EFI_HANDLE image, CHAR16 *name, EFI_FILE **file, UINT64 mode)
 		Print(L"Unable to generate load path for %s\n", name);
 		goto error;
 	}
-	Print(L"Path Name is %s\n", PathName);
 
 	device = li->DeviceHandle;
 
@@ -190,7 +189,7 @@ simple_dir_read_all(EFI_HANDLE *image, CHAR16 *name, EFI_FILE_INFO **entries,
 		size += len;
 	}
 	uefi_call_wrapper(file->SetPosition, 2, file, 0);
-	Print(L"Size is %d\n", size);
+
 	char *ptr = AllocatePool(size);
 	*entries = (EFI_FILE_INFO *)ptr;
 	int i;
@@ -229,7 +228,7 @@ simple_file_read_all(EFI_FILE *file, UINTN *size, void **buffer)
 	}
 
 	*size = fi->FileSize;
-	Print(L"FILE SIZE IS %d\n", *size);
+
 	*buffer = AllocatePool(*size);
 	if (!*buffer) {
 		Print(L"Failed to allocate buffer of size %d\n", *size);
@@ -273,8 +272,6 @@ simple_dir_filter(EFI_HANDLE *image, CHAR16 *name, CHAR16 *filter,
 		goto out;
 	ptr = next = *entries;
 
-	Print(L"%d directory entries\n", tot);
-
 	for (i = 0; i < tot; i++) {
 		int len = StrLen(next->FileName);
 
@@ -284,8 +281,7 @@ simple_dir_filter(EFI_HANDLE *image, CHAR16 *name, CHAR16 *filter,
 		ptr += OFFSET_OF(EFI_FILE_INFO, FileName) + (len + 1)*sizeof(CHAR16);
 		next = ptr;
 	}
-	*result = AllocatePool((*count) * sizeof(void *));
-	Print(L"Got %d from filter\n", *count);
+	*result = AllocatePool(((*count) + 1) * sizeof(void *));
 
 	*count = 0;
 	ptr = next = *entries;
@@ -299,6 +295,7 @@ simple_dir_filter(EFI_HANDLE *image, CHAR16 *name, CHAR16 *filter,
 		ptr += OFFSET_OF(EFI_FILE_INFO, FileName) + (len + 1)*sizeof(CHAR16);
 		next = ptr;
 	}
+	(*result)[*count] = NULL;
 	status = EFI_SUCCESS;
 
  out:

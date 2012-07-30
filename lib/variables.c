@@ -140,12 +140,13 @@ SetSecureVariable(CHAR16 *var, UINT8 *Data, UINTN len, EFI_GUID owner, UINT32 op
 		if (efi_status != EFI_SUCCESS) {
 			Print(L"Failed to create %s certificate %d\n", var, efi_status);
 			return efi_status;
+			DataSize = Cert->SignatureListSize;
 		}
 	} else {
 		/* we expect an efi signature list rather than creating it */
-		Cert = Data;
+		Cert = (EFI_SIGNATURE_LIST *)Data;
+		DataSize = len;
 	}
-	DataSize = Cert->SignatureListSize;
 	Print(L"Created %s Cert of size %d\n", var, DataSize);
 	efi_status = CreateTimeBasedPayload(&DataSize, (UINT8 **)&Cert);
 	if (efi_status != EFI_SUCCESS) {

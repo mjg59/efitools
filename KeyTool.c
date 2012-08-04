@@ -1,4 +1,9 @@
-/* Tool for manipulating system keys in setup mode
+/*
+ * Copyright 2012 <James.Bottomley@HansenPartnership.com>
+ *
+ * see COPYING file
+ *
+ * Tool for manipulating system keys in setup mode
  */
 #include <efi.h>
 #include <efilib.h>

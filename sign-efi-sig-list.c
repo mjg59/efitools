@@ -1,3 +1,8 @@
+/*
+ * Copyright 2012 <James.Bottomley@HansenPartnership.com>
+ *
+ * see COPYING file
+ */
 #include <stdint.h>
 #define __STDC_VERSION__ 199901L
 #include <efi.h>

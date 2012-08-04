@@ -1,3 +1,8 @@
+/*
+ * Copyright 2012 <James.Bottomley@HansenPartnership.com>
+ *
+ * see COPYING file
+ */
 #include <efi/efi.h>
 #include <efi/efilib.h>
 

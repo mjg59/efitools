@@ -1,3 +1,7 @@
+/*
+ * file from gnu-efi-3.0q as t2.c
+ */
+
 #include <efi.h>
 #include <efilib.h>
 

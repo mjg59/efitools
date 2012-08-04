@@ -1,5 +1,10 @@
-/* Read and dump all the secure variables */
-
+/*
+ * Copyright 2012 <James.Bottomley@HansenPartnership.com>
+ *
+ * see COPYING file
+ *
+ * Read and dump all the secure variables
+ */
 #include <efi.h>
 #include <efilib.h>
 

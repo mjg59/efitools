@@ -1,4 +1,10 @@
-/* Simple elf loader based on Intel TianoCore */
+/*
+ * Copyright 2012 <James.Bottomley@HansenPartnership.com>
+ *
+ * see COPYING file
+ *
+ * Simple elf loader based on Intel TianoCore
+ */
 
 #include <efi.h>
 #include <efilib.h>

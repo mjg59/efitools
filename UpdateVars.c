@@ -1,7 +1,12 @@
-/* Update a secure varible when in secure mode
+/*
+ * Copyright 2012 <James.Bottomley@HansenPartnership.com>
  *
- * For instance append a signature to the KEK, db or dbx datbases */
-
+ * see COPYING file
+ *
+ * Update a secure varible when in secure mode
+ *
+ * For instance append a signature to the KEK, db or dbx datbases
+ */
 #include <efi.h>
 #include <efilib.h>
 

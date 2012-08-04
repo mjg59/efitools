@@ -1,3 +1,9 @@
+/*
+ * Copyright 2012 <James.Bottomley@HansenPartnership.com>
+ *
+ * see COPYING file
+ */
+
 #include <guid.h>
 #include <stdio.h>
 

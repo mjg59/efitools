@@ -68,4 +68,4 @@ endif
 	ar rcv $@ $^
 
 doc/%.1: doc/%.1.in %
-	$(HELP2MAN) --no-info -i $< -o $@ $*
+	$(HELP2MAN) --no-info -i $< -o $@ ./$*

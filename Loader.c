@@ -17,7 +17,7 @@
 #include <efiauthenticated.h>
 #include <guid.h>
 
-CHAR16 *loader = L"elilo.efi";
+CHAR16 *loader = L"loader.efi";
 
 static void *
 ImageAddress (void *image, int size, unsigned int address)

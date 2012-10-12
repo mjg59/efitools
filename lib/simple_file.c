@@ -124,7 +124,7 @@ generate_path(CHAR16* name, EFI_LOADED_IMAGE *li, EFI_DEVICE_PATH **grubpath, CH
 
 		/* If trailing \, need to strip it */
 		if (tmpbuffer[len-1] == '\\')
-			tmpbuffer[len=1] = '\0';
+			tmpbuffer[len-1] = '\0';
 
 		StrCat(*PathName, tmpbuffer);
 		FreePool(tmpbuffer);

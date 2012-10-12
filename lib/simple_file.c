@@ -87,7 +87,7 @@ generate_path(CHAR16* name, EFI_LOADED_IMAGE *li, EFI_DEVICE_PATH **grubpath, CH
 		devpath = NextDevicePathNode(devpath);
 	}
 
-	*PathName = AllocatePool(pathlen + StrLen(name));
+	*PathName = AllocatePool(pathlen + 1 + StrLen(name));
 
 	if (!*PathName) {
 		Print(L"Failed to allocate path buffer\n");
@@ -131,6 +131,7 @@ generate_path(CHAR16* name, EFI_LOADED_IMAGE *li, EFI_DEVICE_PATH **grubpath, CH
 		devpath = NextDevicePathNode(devpath);
 	}
 
+	StrCat(*PathName, L"\\");
 	StrCat(*PathName, name);
 
 	*grubpath = FileDevicePath(device, *PathName);

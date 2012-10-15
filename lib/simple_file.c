@@ -222,10 +222,8 @@ simple_dir_read_all(EFI_HANDLE *image, CHAR16 *name, EFI_FILE_INFO **entries,
 	}
 	size = 0;
 	*count = 0;
-	if (!*entries)
-		return EFI_OUT_OF_RESOURCES;
 	for (;;) {
-		int len = sizeof(buf);
+		UINTN len = sizeof(buf);
 		status = uefi_call_wrapper(file->Read, 3, file, &len, buf);
 		if (status != EFI_SUCCESS || len == 0)
 			break;
@@ -236,6 +234,8 @@ simple_dir_read_all(EFI_HANDLE *image, CHAR16 *name, EFI_FILE_INFO **entries,
 
 	char *ptr = AllocatePool(size);
 	*entries = (EFI_FILE_INFO *)ptr;
+	if (!*entries)
+		return EFI_OUT_OF_RESOURCES;
 	int i;
 	for (i = 0; i < *count; i++) {
 		int len = size;

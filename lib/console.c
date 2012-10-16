@@ -48,9 +48,9 @@ console_get_keystroke(void)
 }
 
 void
-console_print_box_at(CHAR16 *str_arr[], int highlight, int start_col, int start_row, int size_cols, int size_rows, int offset)
+console_print_box_at(CHAR16 *str_arr[], int highlight, int start_col, int start_row, int size_cols, int size_rows, int offset, int lines)
 {
-	int lines = count_lines(str_arr), i;
+	int i;
 	SIMPLE_TEXT_OUTPUT_INTERFACE *co = ST->ConOut;
 	UINTN rows, cols;
 	CHAR16 *Line;
@@ -86,7 +86,7 @@ console_print_box_at(CHAR16 *str_arr[], int highlight, int start_col, int start_
 	}
 	       
 	if (lines > size_rows - 2) {
-		Print(L"Too many lines in string (%d), screen is only %d\n",
+		Print(L"Too many lines in string (%d), box is only %d\n",
 		      lines, size_rows - 2);
 		return;
 	}
@@ -162,7 +162,8 @@ console_print_box(CHAR16 *str_arr[], int highlight)
 	uefi_call_wrapper(co->EnableCursor, 2, co, FALSE);
 	uefi_call_wrapper(co->SetAttribute, 2, co, EFI_LIGHTGRAY | EFI_BACKGROUND_BLUE);
 
-	console_print_box_at(str_arr, highlight, 0, 0, -1, -1, 0);
+	console_print_box_at(str_arr, highlight, 0, 0, -1, -1, 0,
+			     count_lines(str_arr));
 
 	console_get_keystroke();
 
@@ -182,7 +183,11 @@ console_select(CHAR16 *title[], CHAR16* selectors[], int align)
 	int selector = 0;
 	int selector_lines = count_lines(selectors);
 	int selector_max_cols = 0;
-	int i, offs_col, offs_row, size_cols, size_rows;
+	int i, offs_col, offs_row, size_cols, size_rows, lines;
+	int selector_offset = 0;
+	UINTN cols, rows;
+
+	uefi_call_wrapper(co->QueryMode, 4, co, co->Mode->Mode, &cols, &rows);
 
 	for (i = 0; i < selector_lines; i++) {
 		int len = StrLen(selectors[i]);
@@ -192,18 +197,27 @@ console_select(CHAR16 *title[], CHAR16* selectors[], int align)
 	}
 
 	offs_col = - selector_max_cols - 4;
-	offs_row = - selector_lines - 4;
 	size_cols = selector_max_cols + 4;
-	size_rows = selector_lines + 2;
+
+	if (selector_lines > rows - 10) {
+		int title_lines = count_lines(title);
+		offs_row =  title_lines + 1;
+		size_rows = rows - 3 - title_lines;
+		lines = size_rows - 2;
+	} else {
+		offs_row = - selector_lines - 4;
+		size_rows = selector_lines + 2;
+		lines = selector_lines;
+	}
 
 	CopyMem(&SavedConsoleMode, co->Mode, sizeof(SavedConsoleMode));
 	uefi_call_wrapper(co->EnableCursor, 2, co, FALSE);
 	uefi_call_wrapper(co->SetAttribute, 2, co, EFI_LIGHTGRAY | EFI_BACKGROUND_BLUE);
 
-	console_print_box_at(title, -1, 0, 0, -1, -1, 1);
+	console_print_box_at(title, -1, 0, 0, -1, -1, 1, count_lines(title));
 
 	console_print_box_at(selectors, selector, offs_col, offs_row,
-			     size_cols, size_rows, 0);
+			     size_cols, size_rows, 0, lines);
 
 	do {
 		k = console_get_keystroke();
@@ -213,13 +227,21 @@ console_select(CHAR16 *title[], CHAR16* selectors[], int align)
 			break;
 		}
 
-		if (k.ScanCode == SCAN_UP && selector > 0)
-			selector--;
-		else if (k.ScanCode == SCAN_DOWN && selector < selector_lines - 1)
-			selector++;
+		if (k.ScanCode == SCAN_UP) {
+			if (selector > 0)
+				selector--;
+			else if (selector_offset > 0)
+				selector_offset--;
+		} else if (k.ScanCode == SCAN_DOWN) {
+			if (selector < lines - 1)
+				selector++;
+			else if (selector_offset < (selector_lines - lines))
+				selector_offset++;
+		}
 
-		console_print_box_at(selectors, selector, offs_col, offs_row,
-				     size_cols, size_rows, 0);
+		console_print_box_at(&selectors[selector_offset], selector,
+				     offs_col, offs_row,
+				     size_cols, size_rows, 0, lines);
 	} while (!(k.ScanCode == SCAN_NULL
 		   && k.UnicodeChar == CHAR_CARRIAGE_RETURN));
 

@@ -9,7 +9,7 @@ include Make.rules
 EFISIGNED = $(patsubst %.efi,%-db-signed.efi,$(EFIFILES)) \
 	$(patsubst %.efi,%-kek-signed.efi,$(EFIFILES))
 
-all: $(EFISIGNED) $(BINARIES) $(MANPAGES)
+all: $(EFISIGNED) $(BINARIES) $(MANPAGES) noPK.auth
 
 install: all
 	$(INSTALL) -m 755 -d $(MANDIR)
@@ -38,6 +38,12 @@ PK.h: PK.auth
 KEK.h: KEK.auth
 
 DB.h: DB.auth
+
+noPK.esl:
+	> noPK.esl
+
+noPK.auth: noPK.esl PK.crt sign-efi-sig-list
+	./sign-efi-sig-list -c PK.crt -k PK.key PK $< $@
 
 Loader.so: lib/lib-efi.a
 ReadVars.so: lib/lib-efi.a

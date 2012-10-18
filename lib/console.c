@@ -251,7 +251,7 @@ console_select(CHAR16 *title[], CHAR16* selectors[], int align)
 	uefi_call_wrapper(co->SetCursorPosition, 3, co, SavedConsoleMode.CursorColumn, SavedConsoleMode.CursorRow);
 	uefi_call_wrapper(co->SetAttribute, 2, co, SavedConsoleMode.Attribute);
 
-	return selector;
+	return selector + selector_offset;
 }
 
 

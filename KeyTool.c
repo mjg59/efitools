@@ -152,30 +152,18 @@ show_key(int key, int offset, void *Data, int DataSize)
 static void
 add_new_key(key)
 {
-	CHAR16 *title[3], **entries;
-	EFI_FILE_INFO *dmp;
+	CHAR16 *title[3], *file_name;
 	EFI_STATUS status;
-	int count, select;
 	EFI_FILE *file;
 
 	title[0] = L"Select file to add to";
 	title[1] = keyinfo[key].text;
 	title[2] = NULL;
-
-	Print(L"About to filter\n");
-
-	status = simple_dir_filter(im, L".", L".esl", &entries, &count, &dmp);
-
-	if (status != EFI_SUCCESS)
+	simple_file_selector(im, title, L".", L".esl", &file_name);
+	if (file_name == NULL)
 		return;
 
-	select = console_select(title, entries, 0);
-	if (select < 0)
-		/* ESC key */
-		return;
-	status = simple_file_open(im, entries[select], &file, EFI_FILE_MODE_READ);
-	FreePool(dmp);
-	FreePool(entries);
+	status = simple_file_open(im, file_name, &file, EFI_FILE_MODE_READ);
 	if (status != EFI_SUCCESS)
 		return;
 

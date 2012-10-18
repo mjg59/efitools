@@ -44,6 +44,7 @@
 #include <efi.h>
 #include <efilib.h>
 
+#include <console.h>
 #include <simple_file.h>
 #include <efiauthenticated.h>
 
@@ -87,7 +88,7 @@ generate_path(CHAR16* name, EFI_LOADED_IMAGE *li, EFI_DEVICE_PATH **grubpath, CH
 		devpath = NextDevicePathNode(devpath);
 	}
 
-	*PathName = AllocatePool(pathlen + 1 + StrLen(name));
+	*PathName = AllocatePool((pathlen + 1 + StrLen(name))*sizeof(CHAR16));
 
 	if (!*PathName) {
 		Print(L"Failed to allocate path buffer\n");
@@ -109,7 +110,7 @@ generate_path(CHAR16* name, EFI_LOADED_IMAGE *li, EFI_DEVICE_PATH **grubpath, CH
 			continue;
 		}
 
-		tmpbuffer = AllocatePool(len + 1);
+		tmpbuffer = AllocatePool((len + 1)*sizeof(CHAR16));
 
 		if (!tmpbuffer) {
 			Print(L"Unable to allocate temporary buffer\n");
@@ -319,8 +320,9 @@ simple_dir_filter(EFI_HANDLE *image, CHAR16 *name, CHAR16 *filter,
 	for (i = 0; i < tot; i++) {
 		int len = StrLen(next->FileName);
 
-		if (StrCmp(&next->FileName[len - offs], filter) == 0)
-			(*count) ++;
+		if (StrCmp(&next->FileName[len - offs], filter) == 0 ||
+		    (next->Attribute & EFI_FILE_DIRECTORY))
+			(*count)++;
 
 		ptr += OFFSET_OF(EFI_FILE_INFO, FileName) + (len + 1)*sizeof(CHAR16);
 		next = ptr;
@@ -335,6 +337,11 @@ simple_dir_filter(EFI_HANDLE *image, CHAR16 *name, CHAR16 *filter,
 
 		if (StrCmp(&next->FileName[len - offs], filter) == 0)
 			(*result)[(*count)++] = next->FileName;
+		else if (next->Attribute & EFI_FILE_DIRECTORY) {
+			(*result)[(*count)] = next->FileName;
+			(*result)[(*count)][len] = '/';
+			(*result)[(*count)++][len + 1] = '\0';
+		}
 
 		ptr += OFFSET_OF(EFI_FILE_INFO, FileName) + (len + 1)*sizeof(CHAR16);
 		next = ptr;
@@ -352,4 +359,66 @@ simple_dir_filter(EFI_HANDLE *image, CHAR16 *name, CHAR16 *filter,
 		*result = NULL;
 	}
 	return status;
+}
+
+void
+simple_file_selector(EFI_HANDLE *im, CHAR16 **title, CHAR16 *name,
+		     CHAR16 *filter, CHAR16 **result)
+{
+	EFI_STATUS status;
+	CHAR16 **entries;
+	EFI_FILE_INFO *dmp;
+	int count, select, len;
+	CHAR16 *newname;
+
+	*result = NULL;
+	newname = AllocatePool((StrLen(name) + 1)*sizeof(CHAR16));
+	if (!newname)
+		return;
+
+	newname[0] = '\0';
+	StrCat(newname, name);
+	name = newname;
+
+ redo:
+	status = simple_dir_filter(im, name, filter, &entries, &count, &dmp);
+
+	if (status != EFI_SUCCESS)
+		goto out_free_name;
+
+	select = console_select(title, entries, 0);
+	if (select < 0)
+		/* ESC key */
+		goto out_free;
+	len = StrLen(entries[select]);
+	if (entries[select][len - 1] == '/') {
+		/* directory */
+		CHAR16 *newname = AllocatePool((StrLen(name) + len + 2)*sizeof(CHAR16));
+		if (!newname)
+			goto out_free;
+		newname[0] ='\0';
+		StrCat(newname, name);
+		StrCat(newname, L"\\");
+		StrCat(newname, entries[select]);
+		/* remove trailing / */
+		newname[StrLen(newname) - 1] = '\0';
+		FreePool(dmp);
+		FreePool(entries);
+		FreePool(name);
+		name = newname;
+		goto redo;
+	}
+	*result = AllocatePool((StrLen(name) + len + 2)*sizeof(CHAR16));
+	if (*result) {
+		(*result)[0] = '\0';
+		StrCat(*result, name);
+		StrCat(*result, L"\\");
+		StrCat(*result, entries[select]);
+	}
+
+ out_free:
+	FreePool(dmp);
+	FreePool(entries);
+ out_free_name:
+	FreePool(name);
 }

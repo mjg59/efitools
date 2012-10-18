@@ -14,3 +14,6 @@ simple_dir_read_all(EFI_HANDLE *image, CHAR16 *name, EFI_FILE_INFO **Entries,
 EFI_STATUS
 simple_dir_filter(EFI_HANDLE *image, CHAR16 *name, CHAR16 *filter,
 		  CHAR16 ***result, int *count, EFI_FILE_INFO **entries);
+void
+simple_file_selector(EFI_HANDLE *im, CHAR16 **title, CHAR16 *name,
+		     CHAR16 *filter, CHAR16 **result);

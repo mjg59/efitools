@@ -155,11 +155,13 @@ add_new_key(key)
 	CHAR16 *title[3], *file_name;
 	EFI_STATUS status;
 	EFI_FILE *file;
+	/* PK update must be signed: so require .auth file */
+	CHAR16 *ext = key ? L".esl" : L".auth";
 
 	title[0] = L"Select file to add to";
 	title[1] = keyinfo[key].text;
 	title[2] = NULL;
-	simple_file_selector(im, title, L".", L".esl", &file_name);
+	simple_file_selector(im, title, L".", ext, &file_name);
 	if (file_name == NULL)
 		return;
 
@@ -171,9 +173,17 @@ add_new_key(key)
 	void *esl;
 	simple_file_read_all(file, &size, &esl);
 	simple_file_close(file);
-	/* FIXME: this won't work for PK */
-	status = SetSecureVariable(keyinfo[key].name, esl, size,
-				   *keyinfo[key].guid, EFI_VARIABLE_APPEND_WRITE, 0);
+
+	/* PK is different: need to update with an authenticated bundle
+	 * including a signature with the new PK */
+	if (key)
+		status = SetSecureVariable(keyinfo[key].name, esl, size,
+				*keyinfo[key].guid, EFI_VARIABLE_APPEND_WRITE, 0);
+	else
+		status = uefi_call_wrapper(RT->SetVariable, 5, keyinfo[key].name, keyinfo[key].guid,
+				   EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_RUNTIME_ACCESS 
+				   | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS,
+				   size, esl);
 	if (status != EFI_SUCCESS) {
 		Print(L"Failed to update variable: %d\n", status);
 		console_get_keystroke();

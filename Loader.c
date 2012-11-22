@@ -32,13 +32,13 @@ ImageAddress (void *image, int size, unsigned int address)
 int ask_to_boot(void)
 {
 	return console_yes_no( (CHAR16 *[]) {
-		L"WARNING: This Binary is unsigned",
+		L"WARNING: This Binary is unsigned (and should be a Linux boot loader)",
 		L"",
 		L"Are you sure you wish to run an unsigned binary",
 		L"in a secure environment?",
 		L"",
 		L"To avoid this question in future place the platform into setup mode",
-		L"See http://www.linuxfoundation.org/uefi-setup-mode",
+		L"See http://www.linuxfoundation.org/uefi",
 		L"And reboot.",
 		NULL,
 	});

@@ -8,3 +8,7 @@ int
 console_yes_no(CHAR16 *str_arr[]);
 int
 console_select(CHAR16 *title[], CHAR16* selectors[], int align);
+void
+console_errorbox(CHAR16 *err);
+void
+console_error(CHAR16 *err, EFI_STATUS);

@@ -7,6 +7,7 @@
 #include <efi/efilib.h>
 
 #include <console.h>
+#include <errors.h>
 
 static int min(int a, int b)
 {
@@ -259,4 +260,98 @@ int
 console_yes_no(CHAR16 *str_arr[])
 {
 	return console_select(str_arr, (CHAR16 *[]){ L"No", L"Yes", NULL }, 0);
+}
+
+void
+console_errorbox(CHAR16 *err)
+{
+	CHAR16 **err_arr = (CHAR16 *[]){
+		L"ERROR",
+		L"",
+		0,
+		0,
+	};
+
+	err_arr[2] = err;
+
+	console_select(err_arr, (CHAR16 *[]){ L"OK", 0 }, 0);
+}
+
+#define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
+
+/* Copy of gnu-efi-3.0 with the added secure boot strings */
+static struct {
+    EFI_STATUS      Code;
+    WCHAR	    *Desc;
+} error_table[] = {
+	{  EFI_SUCCESS,                L"Success"},
+	{  EFI_LOAD_ERROR,             L"Load Error"},
+	{  EFI_INVALID_PARAMETER,      L"Invalid Parameter"},
+	{  EFI_UNSUPPORTED,            L"Unsupported"},
+	{  EFI_BAD_BUFFER_SIZE,        L"Bad Buffer Size"},
+	{  EFI_BUFFER_TOO_SMALL,       L"Buffer Too Small"},
+	{  EFI_NOT_READY,              L"Not Ready"},
+	{  EFI_DEVICE_ERROR,           L"Device Error"},
+	{  EFI_WRITE_PROTECTED,        L"Write Protected"},
+	{  EFI_OUT_OF_RESOURCES,       L"Out of Resources"},
+	{  EFI_VOLUME_CORRUPTED,       L"Volume Corrupt"},
+	{  EFI_VOLUME_FULL,            L"Volume Full"},
+	{  EFI_NO_MEDIA,               L"No Media"},
+	{  EFI_MEDIA_CHANGED,          L"Media changed"},
+	{  EFI_NOT_FOUND,              L"Not Found"},
+	{  EFI_ACCESS_DENIED,          L"Access Denied"},
+	{  EFI_NO_RESPONSE,            L"No Response"},
+	{  EFI_NO_MAPPING,             L"No mapping"},
+	{  EFI_TIMEOUT,                L"Time out"},
+	{  EFI_NOT_STARTED,            L"Not started"},
+	{  EFI_ALREADY_STARTED,        L"Already started"},
+	{  EFI_ABORTED,                L"Aborted"},
+	{  EFI_ICMP_ERROR,             L"ICMP Error"},
+	{  EFI_TFTP_ERROR,             L"TFTP Error"},
+	{  EFI_PROTOCOL_ERROR,         L"Protocol Error"},
+	{  EFI_INCOMPATIBLE_VERSION,   L"Incompatible Version"},
+	{  EFI_SECURITY_VIOLATION,     L"Security Violation"},
+
+	// warnings
+	{  EFI_WARN_UNKOWN_GLYPH,      L"Warning Unknown Glyph"},
+	{  EFI_WARN_DELETE_FAILURE,    L"Warning Delete Failure"},
+	{  EFI_WARN_WRITE_FAILURE,     L"Warning Write Failure"},
+	{  EFI_WARN_BUFFER_TOO_SMALL,  L"Warning Buffer Too Small"},
+	{  0, NULL}
+} ;
+
+
+static CHAR16 *
+err_string (
+    IN EFI_STATUS       Status
+    )
+{
+	UINTN           Index;
+
+	for (Index = 0; error_table[Index].Desc; Index +=1) {
+		if (error_table[Index].Code == Status) {
+			return error_table[Index].Desc;
+		}
+	}
+
+	return L"";
+}
+	
+
+void
+console_error(CHAR16 *err, EFI_STATUS status)
+{
+	CHAR16 **err_arr = (CHAR16 *[]){
+		L"ERROR",
+		L"",
+		0,
+		0,
+	};
+	CHAR16 str[512];
+
+	SPrint(str, sizeof(str), L"%s: (%d) %s", err, status, err_string(status));
+
+	err_arr[2] = str;
+
+	console_select(err_arr, (CHAR16 *[]){ L"OK", 0 }, 0);
 }

@@ -25,6 +25,8 @@
 #include <efiauthenticated.h>
 
 #include <variables.h>
+#include <guid.h>
+#include <console.h>
 
 EFI_STATUS
 CreatePkX509SignatureList (
@@ -181,4 +183,43 @@ SetSecureVariable(CHAR16 *var, UINT8 *Data, UINTN len, EFI_GUID owner, UINT32 op
 				       DataSize, Cert);
 
 	return efi_status;
+}
+
+UINT64
+GetOSIndications(void)
+{
+	UINT64 indications;
+	UINTN DataSize = sizeof(indications);
+	EFI_STATUS efi_status;
+
+	efi_status = uefi_call_wrapper(RT->GetVariable, 5, L"OsIndicationsSupported", &GV_GUID, NULL, &DataSize, &indications);
+	if (efi_status != EFI_SUCCESS)
+		return 0;
+
+	return indications;
+}
+
+EFI_STATUS
+SETOSIndicationsAndReboot(UINT64 indications)
+{
+	UINTN DataSize = sizeof(indications);
+	EFI_STATUS efi_status;
+
+	efi_status = uefi_call_wrapper(RT->SetVariable, 5, L"OsIndications",
+				       &GV_GUID,
+				       EFI_VARIABLE_NON_VOLATILE
+				       | EFI_VARIABLE_RUNTIME_ACCESS 
+				       | EFI_VARIABLE_BOOTSERVICE_ACCESS,
+				       DataSize, &indications);
+
+	if (efi_status != EFI_SUCCESS) {
+		Print(L"GetVariable returned %d\n", efi_status);
+		console_get_keystroke();
+		return efi_status;
+	}
+
+	uefi_call_wrapper(RT->ResetSystem, 4, EfiResetWarm, EFI_SUCCESS, 0, NULL);
+	/* does not return */
+
+	return EFI_SUCCESS;
 }

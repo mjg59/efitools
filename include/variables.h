@@ -14,3 +14,10 @@ CreateTimeBasedPayload (
 			);
 EFI_STATUS
 SetSecureVariable(CHAR16 *var, UINT8 *Data, UINTN len, EFI_GUID owner, UINT32 options, int createtimebased);
+
+#define EFI_OS_INDICATIONS_BOOT_TO_FW_UI 0x0000000000000001
+
+UINT64
+GetOSIndications(void);
+EFI_STATUS
+SETOSIndicationsAndReboot(UINT64 indications);

@@ -263,6 +263,12 @@ console_yes_no(CHAR16 *str_arr[])
 }
 
 void
+console_alertbox(CHAR16 **title)
+{
+	console_select(title, (CHAR16 *[]){ L"OK", 0 }, 0);
+}
+
+void
 console_errorbox(CHAR16 *err)
 {
 	CHAR16 **err_arr = (CHAR16 *[]){
@@ -274,7 +280,7 @@ console_errorbox(CHAR16 *err)
 
 	err_arr[2] = err;
 
-	console_select(err_arr, (CHAR16 *[]){ L"OK", 0 }, 0);
+	console_alertbox(err_arr);
 }
 
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
@@ -353,5 +359,5 @@ console_error(CHAR16 *err, EFI_STATUS status)
 
 	err_arr[2] = str;
 
-	console_select(err_arr, (CHAR16 *[]){ L"OK", 0 }, 0);
+	console_alertbox(err_arr);
 }

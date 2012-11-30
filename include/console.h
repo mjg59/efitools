@@ -12,3 +12,5 @@ void
 console_errorbox(CHAR16 *err);
 void
 console_error(CHAR16 *err, EFI_STATUS);
+void
+console_alertbox(CHAR16 **title);

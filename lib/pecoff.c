@@ -242,3 +242,47 @@ pecoff_relocate(PE_COFF_LOADER_IMAGE_CONTEXT *context, void **data)
 
 	return EFI_SUCCESS;
 }
+
+EFI_STATUS
+pecoff_execute_image(EFI_FILE *file, CHAR16 *name, EFI_HANDLE image,
+		     EFI_SYSTEM_TABLE *systab)
+{
+	UINTN DataSize;
+	void *buffer;
+	EFI_STATUS efi_status;
+	PE_COFF_LOADER_IMAGE_CONTEXT context;
+	EFI_STATUS (EFIAPI *entry_point) (EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *system_table);
+
+	efi_status = simple_file_read_all(file, &DataSize, &buffer);
+	if (efi_status != EFI_SUCCESS) {
+		Print(L"Failed to read %s\n", name);
+		return efi_status;
+	}
+
+	Print(L"Read %d bytes from %s\n", DataSize, name);
+	efi_status = pecoff_read_header(&context, buffer);
+	if (efi_status != EFI_SUCCESS) {
+		Print(L"Failed to read header\n");
+		goto out;
+	}
+
+	efi_status = pecoff_relocate(&context, &buffer);
+	if (efi_status != EFI_SUCCESS) {
+		Print(L"Failed to relocate image\n");
+		goto out;
+	}
+
+	entry_point = pecoff_image_address(buffer, context.ImageSize, context.EntryPoint);
+	if (!entry_point) {
+		Print(L"Invalid entry point\n");
+		efi_status = EFI_UNSUPPORTED;
+		goto out;
+	}
+
+	efi_status = uefi_call_wrapper(entry_point, 2, image, systab);
+
+ out:
+	FreePool(buffer);
+
+	return efi_status;
+}

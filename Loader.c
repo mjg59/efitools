@@ -58,9 +58,6 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	UINT8 SecureBoot = 0, SetupMode = 0;
 	UINTN DataSize = sizeof(SecureBoot);
 	EFI_FILE *file;
-	void *buffer;
-	PE_COFF_LOADER_IMAGE_CONTEXT context;
-	EFI_STATUS (EFIAPI *entry_point) (EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *system_table);
 	EFI_LOADED_IMAGE *li;
 	EFI_DEVICE_PATH *loadpath = NULL;
 	CHAR16 *PathName = NULL;
@@ -120,18 +117,6 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		Print(L"Failed to open %s\n", loader);
 		return efi_status;
 	}
-	efi_status = simple_file_read_all(file, &DataSize, &buffer);
-	if (efi_status != EFI_SUCCESS) {
-		Print(L"Failed to read %s\n", loader);
-		return efi_status;
-	}
-	Print(L"Read %d bytes from %s\n", DataSize, loader);
-
-	efi_status = pecoff_read_header(&context, buffer);
-	if (efi_status != EFI_SUCCESS) {
-		Print(L"Failed to read header\n");
-		return efi_status;
-	}
 
 	/* We're in setup mode and the User asked us to add the signature
 	 * of this binary to the authorized signatures database */
@@ -148,7 +133,6 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		if (find_in_variable_esl(L"db", SIG_DB, hash, SHA256_DIGEST_SIZE) == EFI_SUCCESS)
 			goto dont_ask;
 
-	ask:
 		if (ask_install_keys()) {
 			UINT8 sig[sizeof(EFI_SIGNATURE_LIST) + sizeof(EFI_SIGNATURE_DATA) - 1 + SHA256_DIGEST_SIZE];
 			EFI_SIGNATURE_LIST *l = (void *)sig;
@@ -169,19 +153,8 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		;
 	}
 
-	efi_status = pecoff_relocate(&context, &buffer);
-	if (efi_status != EFI_SUCCESS) {
-		Print(L"Failed to relocate image\n");
-		return efi_status;
-	}
+	efi_status = pecoff_execute_image(file, loader, image, systab);
+	simple_file_close(file);
 
-	entry_point = pecoff_image_address(buffer, context.ImageSize, context.EntryPoint);
-	if (!entry_point) {
-		Print(L"Invalid entry point\n");
-		return EFI_UNSUPPORTED;
-	}
-
-	return uefi_call_wrapper(entry_point, 3, image, systab);
-
-	return EFI_SUCCESS;
+	return efi_status;
 }

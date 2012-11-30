@@ -6,6 +6,9 @@ EFI_STATUS
 pecoff_relocate(PE_COFF_LOADER_IMAGE_CONTEXT *context, void **data);
 EFI_STATUS
 pecoff_image_layout(PE_COFF_LOADER_IMAGE_CONTEXT *context, void **data);
+EFI_STATUS
+pecoff_execute_image(EFI_FILE *file, CHAR16 *name, EFI_HANDLE image,
+		     EFI_SYSTEM_TABLE *systab);
 
 static inline void*
 pecoff_image_address(void *image, int size, unsigned int address)

@@ -11,6 +11,7 @@
 #include <simple_file.h>
 #include <guid.h>
 #include "efiauthenticated.h"
+#include <variables.h>
 
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
 
@@ -64,33 +65,6 @@ parse_db(UINT8 *data, UINTN len, EFI_HANDLE image, CHAR16 *name)
 		CertList = (EFI_SIGNATURE_LIST *) ((UINT8 *) CertList + CertList->SignatureListSize);
 	}
 	FreePool(buf);
-}
-
-
-EFI_STATUS
-get_variable(CHAR16 *var, UINT8 **data, UINTN *len, EFI_GUID owner)
-{
-	EFI_STATUS efi_status;
-
-	*len = 0;
-
-	efi_status = uefi_call_wrapper(RT->GetVariable, 5, var, &owner, NULL,
-				       len, NULL);
-	if (efi_status != EFI_BUFFER_TOO_SMALL)
-		return efi_status;
-
-	*data = AllocateZeroPool(*len);
-	if (!data)
-		return EFI_OUT_OF_RESOURCES;
-	
-	efi_status = uefi_call_wrapper(RT->GetVariable, 5, var, &owner, NULL,
-				       len, *data);
-
-	if (efi_status != EFI_SUCCESS) {
-		FreePool(*data);
-		*data = NULL;
-	}
-	return efi_status;
 }
 
 EFI_STATUS

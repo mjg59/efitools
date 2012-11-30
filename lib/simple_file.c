@@ -454,7 +454,10 @@ simple_dir_filter(EFI_HANDLE image, CHAR16 *name, CHAR16 *filter,
 		ptr += OFFSET_OF(EFI_FILE_INFO, FileName) + (len + 1)*sizeof(CHAR16);
 		next = ptr;
 	}
-	*result = AllocatePool(((*count) + 1) * sizeof(void *));
+	if (*count)
+		*result = AllocatePool(((*count) + 1) * sizeof(void *));
+	else
+		*result = AllocatePool(2 * sizeof(void *));
 
 	*count = 0;
 	ptr = next = *entries;
@@ -479,6 +482,10 @@ simple_dir_filter(EFI_HANDLE image, CHAR16 *name, CHAR16 *filter,
 
 		ptr += OFFSET_OF(EFI_FILE_INFO, FileName) + (len + 1)*sizeof(CHAR16);
 		next = ptr;
+	}
+	if (*count == 0) {
+		/* no entries at all ... can happen because top level dir has no . or .. */
+		(*result)[(*count)++] = L"./";
 	}
 	(*result)[*count] = NULL;
 	status = EFI_SUCCESS;

@@ -16,6 +16,8 @@ EFI_STATUS
 SetSecureVariable(CHAR16 *var, UINT8 *Data, UINTN len, EFI_GUID owner, UINT32 options, int createtimebased);
 EFI_STATUS
 get_variable(CHAR16 *var, UINT8 **data, UINTN *len, EFI_GUID owner);
+EFI_STATUS
+find_in_variable_esl(CHAR16* var, EFI_GUID owner, UINT8 *key, UINTN keylen);
 
 #define EFI_OS_INDICATIONS_BOOT_TO_FW_UI 0x0000000000000001
 

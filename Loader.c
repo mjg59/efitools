@@ -145,34 +145,9 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 			Print(L"%02x", hash[i]);
 		Print(L"\n");
 
-		UINT8 *Data = NULL;
+		if (find_in_variable_esl(L"db", SIG_DB, hash, SHA256_DIGEST_SIZE) == EFI_SUCCESS)
+			goto dont_ask;
 
-		DataSize = 0;
-		efi_status = uefi_call_wrapper(RT->GetVariable, 5, L"db", &SIG_DB, NULL, &DataSize, NULL);
-		if (efi_status != EFI_BUFFER_TOO_SMALL)
-			goto ask;
-
-		Data = AllocatePool(DataSize);
-		if (!Data)
-			goto ask;
-
-		efi_status = uefi_call_wrapper(RT->GetVariable, 5, L"db", &SIG_DB, NULL, &DataSize, Data);
-		if (efi_status != EFI_SUCCESS)
-			goto ask;
-
-		EFI_SIGNATURE_LIST *CertList;
-
-		for (CertList = (EFI_SIGNATURE_LIST *) Data;
-		     DataSize > 0
-		     && DataSize >= CertList->SignatureListSize;
-		     DataSize -= CertList->SignatureListSize,
-		     CertList = (EFI_SIGNATURE_LIST *) ((UINT8 *) CertList + CertList->SignatureListSize)) {
-			if (CompareGuid(&CertList->SignatureType, &EFI_CERT_SHA256_GUID) != 0)
-				continue;
-			EFI_SIGNATURE_DATA *Cert  = (EFI_SIGNATURE_DATA *) ((UINT8 *) CertList + sizeof (EFI_SIGNATURE_LIST) + CertList->SignatureHeaderSize);
-			if (CompareMem (Cert->SignatureData, hash, SHA256_DIGEST_SIZE) == 0)
-				goto dont_ask;
-		}
 	ask:
 		if (ask_install_keys()) {
 			UINT8 sig[sizeof(EFI_SIGNATURE_LIST) + sizeof(EFI_SIGNATURE_DATA) - 1 + SHA256_DIGEST_SIZE];
@@ -191,8 +166,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 			}
 		}
 	dont_ask:
-		if (Data)
-			FreePool(Data);
+		;
 	}
 
 	efi_status = pecoff_relocate(&context, &buffer);

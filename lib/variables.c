@@ -249,3 +249,28 @@ get_variable(CHAR16 *var, UINT8 **data, UINTN *len, EFI_GUID owner)
 	}
 	return efi_status;
 }
+
+EFI_STATUS
+find_in_variable_esl(CHAR16* var, EFI_GUID owner, UINT8 *key, UINTN keylen)
+{
+	UINTN DataSize;
+	UINT8 *Data;
+	EFI_STATUS status;
+	EFI_SIGNATURE_LIST *CertList;
+
+	status = get_variable(var, &Data, &DataSize, owner);
+	if (status != EFI_SUCCESS)
+		return status;
+	for (CertList = (EFI_SIGNATURE_LIST *) Data;
+	     DataSize > 0
+	     && DataSize >= CertList->SignatureListSize;
+	     DataSize -= CertList->SignatureListSize,
+	     CertList = (EFI_SIGNATURE_LIST *) ((UINT8 *) CertList + CertList->SignatureListSize)) {
+		if (CertList->SignatureSize != keylen + sizeof(EFI_GUID))
+			continue;
+		EFI_SIGNATURE_DATA *Cert  = (EFI_SIGNATURE_DATA *) ((UINT8 *) CertList + sizeof (EFI_SIGNATURE_LIST) + CertList->SignatureHeaderSize);
+		if (CompareMem (Cert->SignatureData, key, keylen) == 0)
+			return EFI_SUCCESS;
+	}
+	return EFI_NOT_FOUND;
+}

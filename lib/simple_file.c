@@ -370,9 +370,7 @@ simple_volume_selector(CHAR16 **title, CHAR16 **selected, EFI_HANDLE *h)
 		entries[i] = AllocatePool((StrLen(name) + 2) * sizeof(CHAR16));
 		if (!entries[i])
 			break;
-		entries[i][0] = '\0';
-		StrCat(entries[i], name);
-		StrCat(entries[i], L":");
+		StrCpy(entries[i], name);
 	}
 	entries[i] = NULL;
 
@@ -381,8 +379,7 @@ simple_volume_selector(CHAR16 **title, CHAR16 **selected, EFI_HANDLE *h)
 	if (val >= 0) {
 		*selected = AllocatePool((StrLen(entries[val]) + 1) * sizeof(CHAR16));
 		if (*selected) {
-			*selected[0] = '\0';
-			StrCat(*selected , entries[val]);
+			StrCpy(*selected , entries[val]);
 		}
 		*h = vol_handles[val];
 	} else {
@@ -470,27 +467,33 @@ simple_file_selector(EFI_HANDLE im, CHAR16 **title, CHAR16 *name,
 	CHAR16 **entries;
 	EFI_FILE_INFO *dmp;
 	int count, select, len;
-	CHAR16 *newname;
-	EFI_HANDLE h;
+	CHAR16 *newname, *selected;
 
 	*result = NULL;
-	if (name == NULL) {
-		simple_volume_selector(title, &newname, &h);
+	if (!name)
 		name = L"\\";
-	} else {
-		h = im;
+	if (!im) {
+		EFI_HANDLE h;
+		CHAR16 *volname;
+
+		simple_volume_selector(title, &volname, &h);
+		if (!volname)
+			return;
+		FreePool(volname);
+		im = h;
 	}
 
 	newname = AllocatePool((StrLen(name) + 1)*sizeof(CHAR16));
 	if (!newname)
 		return;
 
-	newname[0] = '\0';
-	StrCat(newname, name);
+	StrCpy(newname, name);
 	name = newname;
 
  redo:
-	status = simple_dir_filter(h, name, filter, &entries, &count, &dmp);
+	Print(L"Filter on %s\n", name);
+	console_get_keystroke();
+	status = simple_dir_filter(im, name, filter, &entries, &count, &dmp);
 
 	if (status != EFI_SUCCESS)
 		goto out_free_name;
@@ -499,35 +502,63 @@ simple_file_selector(EFI_HANDLE im, CHAR16 **title, CHAR16 *name,
 	if (select < 0)
 		/* ESC key */
 		goto out_free;
-	len = StrLen(entries[select]);
-	if (entries[select][len - 1] == '/') {
-		/* directory */
-		CHAR16 *newname = AllocatePool((StrLen(name) + len + 2)*sizeof(CHAR16));
+	selected = entries[select];
+	FreePool(entries);
+	entries = NULL;
+	/* note that memory used by selected is valid until dmp is freed */
+	len = StrLen(selected);
+	if (selected[len - 1] == '/') {
+		CHAR16 *newname;
+
+		/* stay where we are */
+		if (StrCmp(selected, L"./") == 0) {
+			Print(L"Selected .\n");
+			console_get_keystroke();
+			FreePool(dmp);
+			goto redo;
+		} else if (StrCmp(selected, L"../") == 0) {
+			int i;
+
+			Print(L"Selected ..\n");
+			console_get_keystroke();
+
+			FreePool(dmp);
+
+			for (i = StrLen(name); i > 0; --i) {
+				if (name[i] == '\\')
+					break;
+			}
+			if (i == 0)
+				i = 1;
+			name[i] = '\0';
+			goto redo;
+		}
+		newname = AllocatePool((StrLen(name) + len + 2)*sizeof(CHAR16));
 		if (!newname)
 			goto out_free;
-		newname[0] ='\0';
-		StrCat(newname, name);
-		StrCat(newname, L"\\");
-		StrCat(newname, entries[select]);
+		StrCpy(newname, name);
+			
+		if (name[StrLen(name) - 1] != '\\')
+			StrCat(newname, L"\\");
+		StrCat(newname, selected);
 		/* remove trailing / */
 		newname[StrLen(newname) - 1] = '\0';
 		FreePool(dmp);
-		FreePool(entries);
 		FreePool(name);
 		name = newname;
 		goto redo;
 	}
 	*result = AllocatePool((StrLen(name) + len + 2)*sizeof(CHAR16));
 	if (*result) {
-		(*result)[0] = '\0';
-		StrCat(*result, name);
+		StrCpy(*result, name);
 		StrCat(*result, L"\\");
 		StrCat(*result, entries[select]);
 	}
 
  out_free:
 	FreePool(dmp);
-	FreePool(entries);
+	if (entries)
+		FreePool(entries);
  out_free_name:
 	FreePool(name);
 }

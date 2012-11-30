@@ -496,7 +496,7 @@ simple_dir_filter(EFI_HANDLE image, CHAR16 *name, CHAR16 *filter,
 }
 
 void
-simple_file_selector(EFI_HANDLE im, CHAR16 **title, CHAR16 *name,
+simple_file_selector(EFI_HANDLE *im, CHAR16 **title, CHAR16 *name,
 		     CHAR16 *filter, CHAR16 **result)
 {
 	EFI_STATUS status;
@@ -508,7 +508,7 @@ simple_file_selector(EFI_HANDLE im, CHAR16 **title, CHAR16 *name,
 	*result = NULL;
 	if (!name)
 		name = L"\\";
-	if (!im) {
+	if (!*im) {
 		EFI_HANDLE h;
 		CHAR16 *volname;
 
@@ -516,7 +516,7 @@ simple_file_selector(EFI_HANDLE im, CHAR16 **title, CHAR16 *name,
 		if (!volname)
 			return;
 		FreePool(volname);
-		im = h;
+		*im = h;
 	}
 
 	newname = AllocatePool((StrLen(name) + 1)*sizeof(CHAR16));
@@ -527,7 +527,7 @@ simple_file_selector(EFI_HANDLE im, CHAR16 **title, CHAR16 *name,
 	name = newname;
 
  redo:
-	status = simple_dir_filter(im, name, filter, &entries, &count, &dmp);
+	status = simple_dir_filter(*im, name, filter, &entries, &count, &dmp);
 
 	if (status != EFI_SUCCESS)
 		goto out_free_name;
@@ -580,8 +580,9 @@ simple_file_selector(EFI_HANDLE im, CHAR16 **title, CHAR16 *name,
 	*result = AllocatePool((StrLen(name) + len + 2)*sizeof(CHAR16));
 	if (*result) {
 		StrCpy(*result, name);
-		StrCat(*result, L"\\");
-		StrCat(*result, entries[select]);
+		if (name[StrLen(name) - 1] != '\\')
+			StrCat(*result, L"\\");
+		StrCat(*result, selected);
 	}
 
  out_free:

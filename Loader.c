@@ -19,15 +19,6 @@
 
 CHAR16 *loader = L"loader.efi";
 
-static void *
-ImageAddress (void *image, int size, unsigned int address)
-{
-        if (address > size)
-                return NULL;
-
-        return image + address;
-}
-
 /* get the user's permission to boot the image */
 int ask_to_boot(void)
 {
@@ -145,64 +136,10 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	/* We're in setup mode and the User asked us to add the signature
 	 * of this binary to the authorized signatures database */
 	if (SetupMode) {
-		sha256_context ctx;
 		UINT8 hash[SHA256_DIGEST_SIZE];
-		void *hashbase;
-		unsigned int hashsize;
-		sha256_starts(&ctx);
-		EFI_IMAGE_SECTION_HEADER *section;
-		EFI_IMAGE_SECTION_HEADER *sections[context.PEHdr->Pe32.FileHeader.NumberOfSections];
-		int  i, sum_of_bytes;
+		int i;
 
-		/* hash start to checksum */
-		hashbase = buffer;
-		hashsize = (void *)&context.PEHdr->Pe32.OptionalHeader.CheckSum - buffer;
-		
-		sha256_update(&ctx, hashbase, hashsize);
-
-		/* hash post-checksum to start of certificate table */
-		hashbase = (void *)&context.PEHdr->Pe32.OptionalHeader.CheckSum + sizeof (int);
-		hashsize = (void *)context.SecDir - hashbase;
-
-		sha256_update(&ctx, hashbase, hashsize);
-		
-		/* Hash end of certificate table to end of image header */
-		hashbase = &context.PEHdr->Pe32Plus.OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_SECURITY + 1];
-		hashsize = context.PEHdr->Pe32Plus.OptionalHeader.SizeOfHeaders -
-			(int) ((void *) (&context.PEHdr->Pe32Plus.OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_SECURITY + 1]) - buffer);
-
-		sha256_update(&ctx, hashbase, hashsize);
-		sum_of_bytes = context.PEHdr->Pe32Plus.OptionalHeader.SizeOfHeaders;
-		section = (EFI_IMAGE_SECTION_HEADER *) ((char *)context.PEHdr + sizeof (UINT32) + sizeof (EFI_IMAGE_FILE_HEADER) + context.PEHdr->Pe32.FileHeader.SizeOfOptionalHeader);
-
-		/* Sort the section headers by their data pointers */
-		for (i = 0; i < context.PEHdr->Pe32.FileHeader.NumberOfSections; i++) {
-			int p = i;
-			while (p > 0 && section->PointerToRawData < sections[p - 1]->PointerToRawData) {
-				sections[p] = sections[p-1];
-				p--;
-			}
-			sections[p] = section++;
-		}
-		/* hash the sorted sections */
-		for (i = 0; i < context.PEHdr->Pe32.FileHeader.NumberOfSections; i++) {
-			section = sections[i];
-			hashbase  = ImageAddress(buffer, DataSize, section->PointerToRawData);
-			hashsize  = (unsigned int) section->SizeOfRawData;
-			if (hashsize == 0)
-				continue;
-			sha256_update(&ctx, hashbase, hashsize);
-			sum_of_bytes += hashsize;
-		}
-
-		if (DataSize > sum_of_bytes) {
-			/* stuff at end to hash */
-			hashbase = buffer + sum_of_bytes;
-			hashsize = (unsigned int)(DataSize - context.PEHdr->Pe32Plus.OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_SECURITY].Size - sum_of_bytes);
-			sha256_update(&ctx, hashbase, hashsize);
-		}
-		sha256_finish(&ctx, hash);
-
+		sha256_get_pecoff_digest(image, loader, hash);
 		Print(L"HASH IS ");
 		for (i=0; i<SHA256_DIGEST_SIZE; i++)
 			Print(L"%02x", hash[i]);

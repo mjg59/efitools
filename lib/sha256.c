@@ -20,7 +20,10 @@
 
 #include <efi/efi.h>
 #include <efi/efilib.h>
+
 #include <sha256.h>
+#include <pecoff.h>
+#include <simple_file.h>
 
 #define GET_UINT32(n,b,i)                       \
 {                                               \
@@ -260,3 +263,110 @@ void sha256_finish( sha256_context *ctx, uint8 digest[SHA256_DIGEST_SIZE] )
     PUT_UINT32( ctx->state[7], digest, 28 );
 }
 
+static void *
+ImageAddress (void *image, int size, unsigned int address)
+{
+        if (address > size)
+                return NULL;
+
+        return image + address;
+}
+
+EFI_STATUS
+sha256_get_pecoff_digest(EFI_HANDLE device, CHAR16 *name, uint8 hash[SHA256_DIGEST_SIZE])
+{
+	EFI_STATUS efi_status;
+	EFI_FILE *file;
+	UINTN DataSize;
+	void *buffer;
+	PE_COFF_LOADER_IMAGE_CONTEXT context;
+	sha256_context ctx;
+	void *hashbase;
+	unsigned int hashsize;
+	EFI_IMAGE_SECTION_HEADER *section;
+	EFI_IMAGE_SECTION_HEADER **sections;
+	int  i, sum_of_bytes;
+	
+	efi_status = simple_file_open(device, name, &file, EFI_FILE_MODE_READ);
+	if (efi_status != EFI_SUCCESS) {
+		Print(L"Failed to open %s\n", name);
+		return efi_status;
+	}
+
+	efi_status = simple_file_read_all(file, &DataSize, &buffer);
+	if (efi_status != EFI_SUCCESS) {
+		Print(L"Failed to read %s\n", name);
+		goto out_close_file;
+	}
+
+	efi_status = pecoff_read_header(&context, buffer);
+	if (efi_status != EFI_SUCCESS) {
+		Print(L"Failed to read header\n");
+		goto out_free;
+	}
+		
+	sections = AllocatePool(context.PEHdr->Pe32.FileHeader.NumberOfSections * sizeof(*sections));
+	if (!sections) {
+		efi_status = EFI_OUT_OF_RESOURCES;
+		goto out_free;
+	}	
+	sha256_starts(&ctx);
+
+	/* hash start to checksum */
+	hashbase = buffer;
+	hashsize = (void *)&context.PEHdr->Pe32.OptionalHeader.CheckSum - buffer;
+		
+	sha256_update(&ctx, hashbase, hashsize);
+
+	/* hash post-checksum to start of certificate table */
+	hashbase = (void *)&context.PEHdr->Pe32.OptionalHeader.CheckSum + sizeof (int);
+	hashsize = (void *)context.SecDir - hashbase;
+
+	sha256_update(&ctx, hashbase, hashsize);
+		
+	/* Hash end of certificate table to end of image header */
+	hashbase = &context.PEHdr->Pe32Plus.OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_SECURITY + 1];
+	hashsize = context.PEHdr->Pe32Plus.OptionalHeader.SizeOfHeaders -
+	  (int) ((void *) (&context.PEHdr->Pe32Plus.OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_SECURITY + 1]) - buffer);
+
+	sha256_update(&ctx, hashbase, hashsize);
+	sum_of_bytes = context.PEHdr->Pe32Plus.OptionalHeader.SizeOfHeaders;
+	section = (EFI_IMAGE_SECTION_HEADER *) ((char *)context.PEHdr + sizeof (UINT32) + sizeof (EFI_IMAGE_FILE_HEADER) + context.PEHdr->Pe32.FileHeader.SizeOfOptionalHeader);
+
+	/* Sort the section headers by their data pointers */
+	for (i = 0; i < context.PEHdr->Pe32.FileHeader.NumberOfSections; i++) {
+		int p = i;
+		while (p > 0 && section->PointerToRawData < sections[p - 1]->PointerToRawData) {
+			sections[p] = sections[p-1];
+			p--;
+		}
+		sections[p] = section++;
+	}
+	/* hash the sorted sections */
+	for (i = 0; i < context.PEHdr->Pe32.FileHeader.NumberOfSections; i++) {
+		section = sections[i];
+		hashbase  = ImageAddress(buffer, DataSize, section->PointerToRawData);
+		hashsize  = (unsigned int) section->SizeOfRawData;
+		if (hashsize == 0)
+			continue;
+		sha256_update(&ctx, hashbase, hashsize);
+		sum_of_bytes += hashsize;
+	}
+
+	if (DataSize > sum_of_bytes) {
+		/* stuff at end to hash */
+		hashbase = buffer + sum_of_bytes;
+		hashsize = (unsigned int)(DataSize - context.PEHdr->Pe32Plus.OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_SECURITY].Size - sum_of_bytes);
+		sha256_update(&ctx, hashbase, hashsize);
+	}
+	sha256_finish(&ctx, hash);
+
+	efi_status = EFI_SUCCESS;
+
+	FreePool(sections);
+ out_free:
+	FreePool(buffer);
+ out_close_file:
+	simple_file_close(file);
+	return efi_status;
+}

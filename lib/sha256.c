@@ -263,15 +263,6 @@ void sha256_finish( sha256_context *ctx, uint8 digest[SHA256_DIGEST_SIZE] )
     PUT_UINT32( ctx->state[7], digest, 28 );
 }
 
-static void *
-ImageAddress (void *image, int size, unsigned int address)
-{
-        if (address > size)
-                return NULL;
-
-        return image + address;
-}
-
 EFI_STATUS
 sha256_get_pecoff_digest(EFI_HANDLE device, CHAR16 *name, uint8 hash[SHA256_DIGEST_SIZE])
 {
@@ -345,7 +336,7 @@ sha256_get_pecoff_digest(EFI_HANDLE device, CHAR16 *name, uint8 hash[SHA256_DIGE
 	/* hash the sorted sections */
 	for (i = 0; i < context.PEHdr->Pe32.FileHeader.NumberOfSections; i++) {
 		section = sections[i];
-		hashbase  = ImageAddress(buffer, DataSize, section->PointerToRawData);
+		hashbase  = pecoff_image_address(buffer, DataSize, section->PointerToRawData);
 		hashsize  = (unsigned int) section->SizeOfRawData;
 		if (hashsize == 0)
 			continue;

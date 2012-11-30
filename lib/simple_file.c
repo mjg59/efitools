@@ -403,10 +403,34 @@ simple_dir_filter(EFI_HANDLE image, CHAR16 *name, CHAR16 *filter,
 		  CHAR16 ***result, int *count, EFI_FILE_INFO **entries)
 {
 	EFI_STATUS status;
-	int tot, offs = StrLen(filter), i;
+	int tot, offs = StrLen(filter), i, c, filtercount = 1;
 	EFI_FILE_INFO *next;
 	void *ptr;
-	
+	CHAR16 *newfilter = AllocatePool((StrLen(filter) + 1) * sizeof(CHAR16)),
+		**filterarr;
+
+	if (!newfilter)
+		return EFI_OUT_OF_RESOURCES;
+
+	/* just in case efi ever stops writeable strings */
+	StrCpy(newfilter, filter);
+
+	for (i = 0; i < offs; i++) {
+		if (filter[i] == '|')
+			filtercount++;
+	}
+	filterarr = AllocatePool(filtercount * sizeof(void *));
+	if (!filterarr)
+		return EFI_OUT_OF_RESOURCES;
+	c = 0;
+	filterarr[c++] = newfilter;
+	for (i = 0; i < offs; i++) {
+		if (filter[i] == '|') {
+			newfilter[i] = '\0';
+			filterarr[c++] = &newfilter[i+1];
+		}
+	}
+
 	*count = 0;
 
 	status = simple_dir_read_all(image, name, entries, &tot);
@@ -418,10 +442,15 @@ simple_dir_filter(EFI_HANDLE image, CHAR16 *name, CHAR16 *filter,
 	for (i = 0; i < tot; i++) {
 		int len = StrLen(next->FileName);
 
-		if (StrCmp(&next->FileName[len - offs], filter) == 0 ||
-		    (next->Attribute & EFI_FILE_DIRECTORY))
-			(*count)++;
+		for (c = 0; c < filtercount; c++) {
+			offs = StrLen(filterarr[c]);
 
+			if (StrCmp(&next->FileName[len - offs], filterarr[c]) == 0
+			    || (next->Attribute & EFI_FILE_DIRECTORY)) {
+				(*count)++;
+				break;
+			}
+		}
 		ptr += OFFSET_OF(EFI_FILE_INFO, FileName) + (len + 1)*sizeof(CHAR16);
 		next = ptr;
 	}
@@ -433,12 +462,19 @@ simple_dir_filter(EFI_HANDLE image, CHAR16 *name, CHAR16 *filter,
 	for (i = 0; i < tot; i++) {
 		int len = StrLen(next->FileName);
 
-		if (StrCmp(&next->FileName[len - offs], filter) == 0)
-			(*result)[(*count)++] = next->FileName;
-		else if (next->Attribute & EFI_FILE_DIRECTORY) {
-			(*result)[(*count)] = next->FileName;
-			(*result)[(*count)][len] = '/';
-			(*result)[(*count)++][len + 1] = '\0';
+		for (c = 0; c < filtercount; c++) {
+			offs = StrLen(filterarr[c]);
+
+			if (StrCmp(&next->FileName[len - offs], filterarr[c]) == 0) {
+				(*result)[(*count)++] = next->FileName;
+			} else if (next->Attribute & EFI_FILE_DIRECTORY) {
+				(*result)[(*count)] = next->FileName;
+				(*result)[(*count)][len] = '/';
+				(*result)[(*count)++][len + 1] = '\0';
+			} else {
+				continue;
+			}
+			break;
 		}
 
 		ptr += OFFSET_OF(EFI_FILE_INFO, FileName) + (len + 1)*sizeof(CHAR16);
@@ -491,8 +527,6 @@ simple_file_selector(EFI_HANDLE im, CHAR16 **title, CHAR16 *name,
 	name = newname;
 
  redo:
-	Print(L"Filter on %s\n", name);
-	console_get_keystroke();
 	status = simple_dir_filter(im, name, filter, &entries, &count, &dmp);
 
 	if (status != EFI_SUCCESS)
@@ -512,15 +546,10 @@ simple_file_selector(EFI_HANDLE im, CHAR16 **title, CHAR16 *name,
 
 		/* stay where we are */
 		if (StrCmp(selected, L"./") == 0) {
-			Print(L"Selected .\n");
-			console_get_keystroke();
 			FreePool(dmp);
 			goto redo;
 		} else if (StrCmp(selected, L"../") == 0) {
 			int i;
-
-			Print(L"Selected ..\n");
-			console_get_keystroke();
 
 			FreePool(dmp);
 

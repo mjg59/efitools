@@ -9,11 +9,13 @@ simple_file_close(EFI_FILE *file);
 EFI_STATUS
 generate_path(CHAR16* name, EFI_LOADED_IMAGE *li, EFI_DEVICE_PATH **grubpath, CHAR16 **PathName);
 EFI_STATUS
-simple_dir_read_all(EFI_HANDLE *image, CHAR16 *name, EFI_FILE_INFO **Entries,
+simple_dir_read_all(EFI_HANDLE image, CHAR16 *name, EFI_FILE_INFO **Entries,
 		    int *count);
 EFI_STATUS
-simple_dir_filter(EFI_HANDLE *image, CHAR16 *name, CHAR16 *filter,
+simple_dir_filter(EFI_HANDLE image, CHAR16 *name, CHAR16 *filter,
 		  CHAR16 ***result, int *count, EFI_FILE_INFO **entries);
 void
-simple_file_selector(EFI_HANDLE *im, CHAR16 **title, CHAR16 *name,
+simple_file_selector(EFI_HANDLE im, CHAR16 **title, CHAR16 *name,
 		     CHAR16 *filter, CHAR16 **result);
+EFI_STATUS
+simple_volume_selector(CHAR16 **title, CHAR16 **selected, EFI_HANDLE *h);

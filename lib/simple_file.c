@@ -51,6 +51,7 @@
 static EFI_GUID IMAGE_PROTOCOL = LOADED_IMAGE_PROTOCOL;
 static EFI_GUID SIMPLE_FS_PROTOCOL = SIMPLE_FILE_SYSTEM_PROTOCOL;
 static EFI_GUID FILE_INFO = EFI_FILE_INFO_ID;
+static EFI_GUID FS_INFO = EFI_FILE_SYSTEM_INFO_ID;
 
 EFI_STATUS
 generate_path(CHAR16* name, EFI_LOADED_IMAGE *li, EFI_DEVICE_PATH **grubpath, CHAR16 **PathName)
@@ -142,32 +143,11 @@ error:
 }
 
 EFI_STATUS
-simple_file_open(EFI_HANDLE image, CHAR16 *name, EFI_FILE **file, UINT64 mode)
+simple_file_open_by_handle(EFI_HANDLE device, CHAR16 *name, EFI_FILE **file, UINT64 mode)
 {
 	EFI_STATUS efi_status;
-	EFI_HANDLE device;
 	EFI_FILE_IO_INTERFACE *drive;
-	EFI_LOADED_IMAGE *li;
-	EFI_DEVICE_PATH *loadpath = NULL;
 	EFI_FILE *root;
-	CHAR16 *PathName = NULL;
-
-	efi_status = uefi_call_wrapper(BS->HandleProtocol, 3, image,
-				       &IMAGE_PROTOCOL, &li);
-
-	if (efi_status != EFI_SUCCESS) {
-		Print(L"Unable to init image protocol\n");
-		return efi_status;
-	}
-
-	efi_status = generate_path(name, li, &loadpath, &PathName);
-
-	if (efi_status != EFI_SUCCESS) {
-		Print(L"Unable to generate load path for %s\n", name);
-		goto error;
-	}
-
-	device = li->DeviceHandle;
 
 	efi_status = uefi_call_wrapper(BS->HandleProtocol, 3, device,
 				       &SIMPLE_FS_PROTOCOL, &drive);
@@ -184,8 +164,38 @@ simple_file_open(EFI_HANDLE image, CHAR16 *name, EFI_FILE **file, UINT64 mode)
 		goto error;
 	}
 
-	efi_status = uefi_call_wrapper(root->Open, 5, root, file, PathName,
+	efi_status = uefi_call_wrapper(root->Open, 5, root, file, name,
 				       mode, 0);
+
+ error:
+	return efi_status;
+}
+
+EFI_STATUS
+simple_file_open(EFI_HANDLE image, CHAR16 *name, EFI_FILE **file, UINT64 mode)
+{
+	EFI_STATUS efi_status;
+	EFI_HANDLE device;
+	EFI_LOADED_IMAGE *li;
+	EFI_DEVICE_PATH *loadpath = NULL;
+	CHAR16 *PathName = NULL;
+
+	efi_status = uefi_call_wrapper(BS->HandleProtocol, 3, image,
+				       &IMAGE_PROTOCOL, &li);
+
+	if (efi_status != EFI_SUCCESS)
+		return simple_file_open_by_handle(image, name, file, mode);
+
+	efi_status = generate_path(name, li, &loadpath, &PathName);
+
+	if (efi_status != EFI_SUCCESS) {
+		Print(L"Unable to generate load path for %s\n", name);
+		goto error;
+	}
+
+	device = li->DeviceHandle;
+
+	return simple_file_open_by_handle(device, PathName, file, mode);
 
  error:
 	//if (PathName)
@@ -195,20 +205,13 @@ simple_file_open(EFI_HANDLE image, CHAR16 *name, EFI_FILE **file, UINT64 mode)
 }
 
 EFI_STATUS
-simple_dir_read_all(EFI_HANDLE *image, CHAR16 *name, EFI_FILE_INFO **entries,
+simple_dir_read_all_by_handle(EFI_HANDLE image, EFI_FILE *file, CHAR16* name, EFI_FILE_INFO **entries,
 		    int *count)
 {
-	EFI_FILE *file;
 	EFI_STATUS status;
 	char buf[4096];
 	UINTN size = sizeof(buf);
 	EFI_FILE_INFO *fi = (void *)buf;
-
-	status = simple_file_open(image, name, &file, EFI_FILE_MODE_READ);
-	if (status != EFI_SUCCESS) {
-		Print(L"failed to open file %s: %d\n", name, status);
-		return status;
-	}
 	
 	status = uefi_call_wrapper(file->GetInfo, 4, file, &FILE_INFO,
 				   &size, fi);
@@ -252,6 +255,22 @@ simple_dir_read_all(EFI_HANDLE *image, CHAR16 *name, EFI_FILE_INFO **entries,
 		*entries = NULL;
 	}
 	return status;
+}
+
+EFI_STATUS
+simple_dir_read_all(EFI_HANDLE image, CHAR16 *name, EFI_FILE_INFO **entries,
+		    int *count)
+{
+	EFI_FILE *file;
+	EFI_STATUS status;
+
+	status = simple_file_open(image, name, &file, EFI_FILE_MODE_READ);
+	if (status != EFI_SUCCESS) {
+		Print(L"failed to open file %s: %d\n", name, status);
+		return status;
+	}
+
+	return simple_dir_read_all_by_handle(image, file, name, entries, count);
 }
 
 EFI_STATUS
@@ -302,7 +321,88 @@ simple_file_close(EFI_FILE *file)
 }
 
 EFI_STATUS
-simple_dir_filter(EFI_HANDLE *image, CHAR16 *name, CHAR16 *filter,
+simple_volume_selector(CHAR16 **title, CHAR16 **selected, EFI_HANDLE *h)
+{
+	UINTN count, i;
+	EFI_HANDLE *vol_handles = NULL;
+	EFI_STATUS status;
+	CHAR16 **entries;
+	int val;
+
+	uefi_call_wrapper(BS->LocateHandleBuffer, 5, ByProtocol,
+			  &SIMPLE_FS_PROTOCOL, NULL, &count, &vol_handles);
+
+	if (!count || !vol_handles)
+		return EFI_NOT_FOUND;
+
+	entries = AllocatePool(sizeof(CHAR16 *) * (count+1));
+	if (!entries)
+		return EFI_OUT_OF_RESOURCES;
+
+	for (i = 0; i < count; i++) {
+		char buf[4096];
+		UINTN size = sizeof(buf);
+		EFI_FILE_SYSTEM_INFO *fi = (void *)buf;
+		EFI_FILE *root;
+		CHAR16 *name;
+		EFI_FILE_IO_INTERFACE *drive;
+
+		status = uefi_call_wrapper(BS->HandleProtocol, 3,
+					   vol_handles[i],
+					   &SIMPLE_FS_PROTOCOL, &drive);
+		if (status != EFI_SUCCESS || !drive)
+			continue;
+
+		status = uefi_call_wrapper(drive->OpenVolume, 2, drive, &root);
+		if (status != EFI_SUCCESS)
+			continue;
+
+		status = uefi_call_wrapper(root->GetInfo, 4, root, &FS_INFO,
+					   &size, fi);
+		if (status != EFI_SUCCESS)
+			continue;
+
+		name = fi->VolumeLabel;
+		
+		if (!name || StrLen(name) == 0 || StrCmp(name, L" ") == 0) 
+			name = DevicePathToStr(DevicePathFromHandle(vol_handles[i]));
+
+		entries[i] = AllocatePool((StrLen(name) + 2) * sizeof(CHAR16));
+		if (!entries[i])
+			break;
+		entries[i][0] = '\0';
+		StrCat(entries[i], name);
+		StrCat(entries[i], L":");
+	}
+	entries[i] = NULL;
+
+	val = console_select(title, entries, 0);
+
+	if (val >= 0) {
+		*selected = AllocatePool((StrLen(entries[val]) + 1) * sizeof(CHAR16));
+		if (*selected) {
+			*selected[0] = '\0';
+			StrCat(*selected , entries[val]);
+		}
+		*h = vol_handles[val];
+	} else {
+		*selected = NULL;
+		*h = 0;
+	}
+
+	for (i = 0; i < count; i++) {
+		if (entries[i])
+			FreePool(entries[i]);
+	}
+	FreePool(entries);
+	FreePool(vol_handles);
+
+	
+	return EFI_SUCCESS;
+}
+
+EFI_STATUS
+simple_dir_filter(EFI_HANDLE image, CHAR16 *name, CHAR16 *filter,
 		  CHAR16 ***result, int *count, EFI_FILE_INFO **entries)
 {
 	EFI_STATUS status;
@@ -313,6 +413,7 @@ simple_dir_filter(EFI_HANDLE *image, CHAR16 *name, CHAR16 *filter,
 	*count = 0;
 
 	status = simple_dir_read_all(image, name, entries, &tot);
+		
 	if (status != EFI_SUCCESS)
 		goto out;
 	ptr = next = *entries;
@@ -362,7 +463,7 @@ simple_dir_filter(EFI_HANDLE *image, CHAR16 *name, CHAR16 *filter,
 }
 
 void
-simple_file_selector(EFI_HANDLE *im, CHAR16 **title, CHAR16 *name,
+simple_file_selector(EFI_HANDLE im, CHAR16 **title, CHAR16 *name,
 		     CHAR16 *filter, CHAR16 **result)
 {
 	EFI_STATUS status;
@@ -370,8 +471,16 @@ simple_file_selector(EFI_HANDLE *im, CHAR16 **title, CHAR16 *name,
 	EFI_FILE_INFO *dmp;
 	int count, select, len;
 	CHAR16 *newname;
+	EFI_HANDLE h;
 
 	*result = NULL;
+	if (name == NULL) {
+		simple_volume_selector(title, &newname, &h);
+		name = L"\\";
+	} else {
+		h = im;
+	}
+
 	newname = AllocatePool((StrLen(name) + 1)*sizeof(CHAR16));
 	if (!newname)
 		return;
@@ -381,7 +490,7 @@ simple_file_selector(EFI_HANDLE *im, CHAR16 **title, CHAR16 *name,
 	name = newname;
 
  redo:
-	status = simple_dir_filter(im, name, filter, &entries, &count, &dmp);
+	status = simple_dir_filter(h, name, filter, &entries, &count, &dmp);
 
 	if (status != EFI_SUCCESS)
 		goto out_free_name;

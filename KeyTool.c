@@ -15,6 +15,7 @@
 #include "efiauthenticated.h"
 
 static EFI_HANDLE im;
+static UINT8 SetupMode, SecureBoot;
 
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
 
@@ -69,12 +70,58 @@ struct {
 static const int signatures_size = ARRAY_SIZE(signatures);
 
 static void
+select_and_apply(CHAR16 **title, CHAR16 *ext, int key, UINTN options)
+{
+	CHAR16 *file_name;
+	EFI_STATUS status;
+	EFI_FILE *file;
+	EFI_HANDLE h = NULL;
+
+	simple_file_selector(&h, title, NULL, ext, &file_name);
+	if (file_name == NULL)
+		return;
+
+	status = simple_file_open(h, file_name, &file, EFI_FILE_MODE_READ);
+	if (status != EFI_SUCCESS)
+		return;
+
+	UINTN size;
+	void *esl;
+	simple_file_read_all(file, &size, &esl);
+	simple_file_close(file);
+
+	/* PK is different: need to update with an authenticated bundle
+	 * including a signature with the new PK */
+	if (StrCmp(&file_name[StrLen(file_name) - 4], L".esl") == 0) {
+		status = SetSecureVariable(keyinfo[key].name, esl, size,
+				*keyinfo[key].guid, options, 0);
+	} else if (StrCmp(&file_name[StrLen(file_name) - 5], L".auth") == 0) {
+		status = uefi_call_wrapper(RT->SetVariable, 5,
+					   keyinfo[key].name, keyinfo[key].guid,
+					   EFI_VARIABLE_NON_VOLATILE
+					   | EFI_VARIABLE_RUNTIME_ACCESS 
+					   | EFI_VARIABLE_BOOTSERVICE_ACCESS
+					   | EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS
+					   | options,
+				   size, esl);
+	} else {
+		/* do something about .cer case */
+		console_errorbox(L"Handling .cer files is unimplemented");
+		return;
+	}
+	if (status != EFI_SUCCESS) {
+		console_error(L"Failed to update variable", status);
+		return;
+	}
+}
+
+static void
 show_key(int key, int offset, void *Data, int DataSize)
 {
 	EFI_SIGNATURE_LIST *CertList;
 	EFI_SIGNATURE_DATA *Cert = NULL;
 	int cert_count = 0, i, Size, option, offs = 0;
-	CHAR16 *title[6];
+	CHAR16 *title[6], *options[4];
 	CHAR16 str[256], str1[256];
 
 	title[0] = keyinfo[key].text;
@@ -96,7 +143,7 @@ show_key(int key, int offset, void *Data, int DataSize)
 	}
 
 	SPrint(str, sizeof(str), L"Sig[%d] - owner: %g", offset, &Cert->SignatureOwner);
-	Print(L"Got option%s\n\n", str);
+
 	title[1] = str;
 	title[2] = L"Unknown";
 	
@@ -108,11 +155,20 @@ show_key(int key, int offset, void *Data, int DataSize)
 		}
 	}
 	title[3] = NULL;
-	option = console_select(title, (CHAR16 *[]){ L"Back", L"Delete", L"Save to File", NULL }, 0);
-	if (option == -1 || option == 0)
+	options[0] = L"Delete";
+	options[1] = L"Save to File";
+	if (key == 0) {
+		options[2] = L"Delete with .auth File";
+		options[3] = NULL;
+	} else {
+		options[2] = NULL;
+	}
+	option = console_select(title, options, 0);
+	if (option == -1)
 		return;
-	if (option == 1) {
-		Print(L"Old Size %d\n", DataSize);
+	if (option == 0) {
+		EFI_STATUS status;
+
 		if (offs == 0) {
 			/* delete entire sig list + data */
 			DataSize -= CertList->SignatureListSize;
@@ -124,11 +180,13 @@ show_key(int key, int offset, void *Data, int DataSize)
 			if (DataSize > 0)
 				CopyMem(Cert, (void *)Cert + CertList->SignatureSize, DataSize - (Data - (void *)Cert));
 		}
-		Print(L"New Size %d\n", DataSize);
 
-		SetSecureVariable(keyinfo[key].name, Data, DataSize,
-				  *keyinfo[key].guid, 0, 0);	
-	} else if (option == 2) {
+		status = SetSecureVariable(keyinfo[key].name, Data, DataSize,
+					   *keyinfo[key].guid, 0, 0);	
+		if (status != EFI_SUCCESS)
+			console_error(L"Failed to delete key", status);
+
+	} else if (option == 1) {
 		CHAR16 *filename;
 		EFI_FILE *file;
 		EFI_STATUS status;
@@ -143,52 +201,30 @@ show_key(int key, int offset, void *Data, int DataSize)
 		}
 
 		if (status != EFI_SUCCESS) {
-			Print(L"Failed to write %s: %d\n", filename, status);
-			console_get_keystroke();
+			CHAR16 str[80];
+
+			SPrint(str, sizeof(str), L"Failed to write %s", filename);
+			console_error(str, status);
 		}
+	} else if (option == 2) {
+		title[0] = L"Select authority bundle to remove PK";
+		title[1] = NULL;
+		select_and_apply(title, L".auth", key, 0);
 	}
 }
 
 static void
-add_new_key(key)
+add_new_key(int key, UINTN options)
 {
-	CHAR16 *title[3], *file_name;
-	EFI_STATUS status;
-	EFI_FILE *file;
+	CHAR16 *title[3];
 	/* PK update must be signed: so require .auth file */
-	CHAR16 *ext = key ? L".esl" : L".auth";
+	CHAR16 *ext = key ? L".esl|.auth|.cer" : L".auth";
 
-	title[0] = L"Select file to add to";
+	title[0] = L"Select File containing additional key for";
 	title[1] = keyinfo[key].text;
 	title[2] = NULL;
-	simple_file_selector(im, title, L".", ext, &file_name);
-	if (file_name == NULL)
-		return;
-
-	status = simple_file_open(im, file_name, &file, EFI_FILE_MODE_READ);
-	if (status != EFI_SUCCESS)
-		return;
-
-	UINTN size;
-	void *esl;
-	simple_file_read_all(file, &size, &esl);
-	simple_file_close(file);
-
-	/* PK is different: need to update with an authenticated bundle
-	 * including a signature with the new PK */
-	if (key)
-		status = SetSecureVariable(keyinfo[key].name, esl, size,
-				*keyinfo[key].guid, EFI_VARIABLE_APPEND_WRITE, 0);
-	else
-		status = uefi_call_wrapper(RT->SetVariable, 5, keyinfo[key].name, keyinfo[key].guid,
-				   EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_RUNTIME_ACCESS 
-				   | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS,
-				   size, esl);
-	if (status != EFI_SUCCESS) {
-		Print(L"Failed to update variable: %d\n", status);
-		console_get_keystroke();
-		return;
-	}
+	
+	select_and_apply(title, ext, key, options);
 }
 
 static void
@@ -205,27 +241,27 @@ manipulate_key(int key)
 	UINTN DataSize = 0, Size;
 	efi_status = uefi_call_wrapper(RT->GetVariable, 5, keyinfo[key].name, keyinfo[key].guid, NULL, &DataSize, NULL);
 	if (efi_status != EFI_BUFFER_TOO_SMALL && efi_status != EFI_NOT_FOUND) {
-		Print(L"Failed to get DataSize\n");
+		console_error(L"Failed to get DataSize", efi_status);
 		return;
 	}
 
 	Data = AllocatePool(DataSize);
 	if (!Data) {
-		Print(L"Failed to allocate %d\n", DataSize);
-		console_get_keystroke();
+		CHAR16 str[80];
+		SPrint(str, sizeof(str), L"Failed to allocate %d", DataSize);
+		console_errorbox(str);
 		return;
 	}
 
 	efi_status = uefi_call_wrapper(RT->GetVariable, 5, keyinfo[key].name, keyinfo[key].guid, NULL, &DataSize, Data);
 	if (efi_status == EFI_NOT_FOUND) {
 		int t = 2;
-		title[t++] = L"Variable is Empty\n";
+		title[t++] = L"Variable is Empty";
 		if (key == 0)
 			title[t++] = L"WARNING: Setting PK will take the platform out of Setup Mode";
 		title[t++] = NULL;
 	} else if (efi_status != EFI_SUCCESS) {
-		Print(L"Failed to get variable %d\n", efi_status);
-		console_get_keystroke();
+		console_error(L"Failed to get variable", efi_status);
 		return;
 	}
 
@@ -238,7 +274,7 @@ manipulate_key(int key)
 		cert_count += (CertList->SignatureListSize - sizeof(EFI_SIGNATURE_LIST)) / CertList->SignatureSize;
 	}
 
-	CHAR16 **guids = (CHAR16 **)AllocatePool((cert_count + 2)*sizeof(void *));
+	CHAR16 **guids = (CHAR16 **)AllocatePool((cert_count + 3)*sizeof(void *));
 	cert_count = 0;
 	for (CertList = (EFI_SIGNATURE_LIST *) Data, Size = DataSize;
 	     Size > 0
@@ -253,12 +289,17 @@ manipulate_key(int key)
 			SPrint(guids[cert_count++], 64*sizeof(CHAR16), L"%g", &Cert[j].SignatureOwner);
 		}
 	}
-	guids[cert_count] = L"Add New Key";
-	guids[cert_count + 1] = NULL;
+	int add = cert_count, replace = cert_count;
+	if (key != 0)
+		guids[replace++] = L"Add New Key";
+	guids[replace] = L"Replace Key(s)";
+	guids[replace + 1] = NULL;
 	int select = console_select(title, guids, 0);
-
-	if (select == cert_count)
-		add_new_key(key);
+	FreePool(guids);
+	if (select == replace)
+		add_new_key(key, 0);
+	else if (select == add)
+		add_new_key(key, EFI_VARIABLE_APPEND_WRITE);
 	else if (select >= 0)
 		show_key(key, select, Data, DataSize);
 	FreePool(Data);
@@ -282,12 +323,114 @@ select_key(void)
 	}
 }
 
+void
+transition_to_uefi_menu(void)
+{
+	int option;
+	UINT64 indications = GetOSIndications();
+
+	if ((indications & EFI_OS_INDICATIONS_BOOT_TO_FW_UI) == 0) {
+		console_errorbox(L"Platform Does not Support rebooting to firmware menu");
+		return;
+	}
+
+	option = console_yes_no( (CHAR16 *[]){
+			L"About to reboot to UEFI Setup Menu",
+			L"",
+			L"For more details about your system's setup menu",
+			L"Including how to reset the system to setup mode, see",
+			L"",
+			L"http://www.linuxfoundation.org/uefi",
+			L"",
+			L"Note: This option only works on machines supporting",
+			L"UEFI 2.3.1 Errata C and later",
+			NULL
+		});
+	/* user said no */
+	if (option == 0)
+		return;
+
+	SETOSIndicationsAndReboot(EFI_OS_INDICATIONS_BOOT_TO_FW_UI);
+
+	return;
+}
+
+void
+save_keys(void)
+{
+	EFI_HANDLE vol;
+	CHAR16 *volname;
+
+	simple_volume_selector((CHAR16 *[]) {
+			L"Save Keys",
+			L"",
+			L"Select a disk Volume to save all the key files to",
+			L"Key files will be saved in the top level directory",
+			L"",
+			L"Note: For USB volumes, some UEFI implementations aren't",
+			L"very good at hotplug, so you may have to boot with the USB",
+			L"Key already plugged in to see the volume",
+			NULL
+		}, &volname, &vol);
+	/* no selection or ESC pressed */
+	if (!volname)
+		return;
+	FreePool(volname);
+
+	CHAR16 *title[10], buf[4096], file_name[512];
+	CHAR16 *variables[] = { L"PK", L"KEK", L"db", L"dbx" };
+	EFI_GUID owners[] = { GV_GUID, GV_GUID, SIG_DB, SIG_DB };
+	int i, t_c = 0, b_c = 0;
+	UINT8 *data;
+	UINTN len;
+	EFI_STATUS status;
+	EFI_FILE *file;
+
+	title[t_c++] = L"Results of Saving Keys";
+	title[t_c++] = L"";
+
+	for (i = 0; i < ARRAY_SIZE(owners); i++) {
+		StrCpy(&buf[b_c], variables[i]);
+
+		status = get_variable(variables[i], &data, &len, owners[i]);
+		if (status != EFI_SUCCESS) {
+			if (status == EFI_NOT_FOUND)
+				StrCat(&buf[b_c], L": Variable has no entries");
+			else
+				StrCat(&buf[b_c], L": Failed to get variable");
+			goto cont;
+		}
+		StrCpy(file_name, L"\\");
+		StrCat(file_name, variables[i]);
+		StrCat(file_name, L".esl");
+		status = simple_file_open(vol, file_name, &file,
+					  EFI_FILE_MODE_READ
+					  | EFI_FILE_MODE_WRITE
+					  | EFI_FILE_MODE_CREATE);
+		if (status != EFI_SUCCESS) {
+			StrCat(&buf[b_c], L": Failed to open file for writing: ");
+			StrCat(&buf[b_c], file_name);
+			goto cont;
+		}
+		status = simple_file_write_all(file, len, data);
+		if (status != EFI_SUCCESS) {
+			StrCat(&buf[b_c], L": Failed to write to ");
+			StrCat(&buf[b_c], file_name);
+			goto cont;
+		}
+		StrCat(&buf[b_c], L": Successfully written to ");
+		StrCat(&buf[b_c], file_name);
+	cont:
+		title[t_c++] = &buf[b_c];
+		b_c += StrLen(&buf[b_c]) + 1;
+	}
+	console_alertbox(title);
+}
 
 EFI_STATUS
 efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 {
 	EFI_STATUS efi_status;
-	UINT8 SetupMode;
 	UINTN DataSize = sizeof(SetupMode);
 
 	im = image;
@@ -300,16 +443,45 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		Print(L"No SetupMode variable ... is platform secure boot enabled?\n");		return EFI_SUCCESS;
 	}
 
-	if (!SetupMode) {
-		Print(L"Platform is not in Setup Mode, cannot manipulate Keys\n"
-		      L"To put your platform into setup mode, see\n"
-		      L"http://www.linux-foundation.org/uefi-setup-mode.html\n");
-		return EFI_SUCCESS;
+	for (;;) {
+
+		CHAR16 line2[80], line3[80], **title;
+		int option;
+
+		DataSize = sizeof(SetupMode);
+		uefi_call_wrapper(RT->GetVariable, 5, L"SetupMode", &GV_GUID, NULL, &DataSize, &SetupMode);
+
+		DataSize = sizeof(SecureBoot);
+		uefi_call_wrapper(RT->GetVariable, 5, L"SecureBoot", &GV_GUID, NULL, &DataSize, &SecureBoot);
+
+		line2[0] = line3[0] = L'\0';
+
+		StrCat(line2, L"Platform is in ");
+		StrCat(line2, SetupMode ? L"Setup Mode" : L"User Mode");
+		StrCat(line3, L"Secure Boot is ");
+		StrCat(line3, SecureBoot ? L"on" : L"off");
+		title =  (CHAR16 *[]){L"KeyTool main menu", L"", line2, line3, NULL };
+
+		option = console_select(title, (CHAR16 *[]){ L"Save Keys", L"Edit Keys", L"UEFI Setup Menu", L"Exit", NULL }, 0);
+
+		switch (option) {
+		case 0:
+			save_keys();
+			break;
+		case 1:
+			select_key();
+			break;
+		case 2:
+			/* use OS options to return to UEFI menu */
+			transition_to_uefi_menu();
+			break;
+		case 3:
+			/* exit from programme */
+			return EFI_SUCCESS;
+		default:
+			break;
+		}
 	}
-
-	Print(L"Platform is in Setup Mode\n");
-
-	select_key();
 
 	return EFI_SUCCESS;
 }

@@ -54,6 +54,9 @@
 #include <pecoff.h>
 #include <guid.h>
 #include <simple_file.h>
+#include <variables.h>
+#include <sha256.h>
+#include <errors.h>
 
 EFI_STATUS
 pecoff_read_header(PE_COFF_LOADER_IMAGE_CONTEXT *context, void *data)
@@ -246,6 +249,51 @@ pecoff_relocate(PE_COFF_LOADER_IMAGE_CONTEXT *context, void **data)
 }
 
 EFI_STATUS
+pecoff_check_mok(EFI_HANDLE image, CHAR16 *name)
+{
+	EFI_STATUS status;
+	UINT8 hash[SHA256_DIGEST_SIZE];
+	UINT8 *data;
+	UINTN len;
+	UINT32 attr;
+
+	/* first check is MokSBState.  If we're in insecure mode, boot
+	 * anyway regardless of dbx contents */
+	status = get_variable_attr(L"MokSBState", &data, &len,
+				   MOK_OWNER, &attr);
+	if (status == EFI_SUCCESS) {
+		UINT8 MokSBState = data[0];
+
+		FreePool(data);
+		if ((attr & EFI_VARIABLE_RUNTIME_ACCESS) == 0
+		    && MokSBState)
+			return EFI_SUCCESS;
+	}
+
+	status = sha256_get_pecoff_digest(image, name, hash);
+	if (status != EFI_SUCCESS)
+		return status;
+
+	if (find_in_variable_esl(L"dbx", SIG_DB, hash, SHA256_DIGEST_SIZE)
+	    == EFI_SUCCESS)
+		/* MOK list cannot override dbx */
+		return EFI_SECURITY_VIOLATION;
+
+	status = get_variable_attr(L"MokList", &data, &len, MOK_OWNER, &attr);
+	if (status != EFI_SUCCESS)
+		return EFI_SECURITY_VIOLATION;
+	FreePool(data);
+
+	if (attr & EFI_VARIABLE_RUNTIME_ACCESS)
+		return EFI_SECURITY_VIOLATION;
+
+	if (find_in_variable_esl(L"MokList", MOK_OWNER, hash, SHA256_DIGEST_SIZE) != EFI_SUCCESS)
+		return EFI_SECURITY_VIOLATION;
+
+	return EFI_SUCCESS;
+}
+
+EFI_STATUS
 pecoff_execute_checked(EFI_HANDLE image, EFI_SYSTEM_TABLE *systab, CHAR16 *name)
 {
 	EFI_STATUS status;
@@ -264,6 +312,8 @@ pecoff_execute_checked(EFI_HANDLE image, EFI_SYSTEM_TABLE *systab, CHAR16 *name)
 		return status;
 	status = uefi_call_wrapper(BS->LoadImage, 6, FALSE, image,
 				   loadpath, NULL, 0, &h);
+	if (status == EFI_SECURITY_VIOLATION)
+		status = pecoff_check_mok(image, name);
 	if (status != EFI_SUCCESS)
 		/* this will fail if signature validation fails */
 		return status;

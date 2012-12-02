@@ -1,5 +1,5 @@
 EFIFILES = HelloWorld.efi LockDown.efi Loader.efi ReadVars.efi UpdateVars.efi \
-	KeyTool.efi HashTool.efi
+	KeyTool.efi HashTool.efi PreLoader.efi
 BINARIES = cert-to-efi-sig-list sig-list-to-certs sign-efi-sig-list
 
 export TOPDIR	:= $(shell pwd)/
@@ -51,6 +51,7 @@ UpdateVars.so: lib/lib-efi.a
 LockDown.so: lib/lib-efi.a
 KeyTool.so: lib/lib-efi.a
 HashTool.so: lib/lib-efi.a
+PreLoader.so: lib/lib-efi.a
 
 cert-to-efi-sig-list: cert-to-efi-sig-list.o lib/lib.a
 	$(CC) -o $@ $< -lcrypto lib/lib.a

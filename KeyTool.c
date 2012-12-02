@@ -23,33 +23,33 @@ static struct {
 	CHAR16 *name;
 	CHAR16 *text;
 	EFI_GUID *guid;
-	int multiple;
-	int sigtypes;
+	int authenticated;
 } keyinfo[] = {
 	{ .name = L"PK",
 	  .text = L"The Platform Key (PK)",
 	  .guid = &GV_GUID,
-	  .multiple = 0,
-	  .sigtypes = 0,
+	  .authenticated = 1,
 	},
 	{ .name = L"KEK",
 	  .text = L"The Key Exchange Key Database (KEK)",
 	  .guid = &GV_GUID,
-	  .multiple = 1,
-	  .sigtypes = 0,
+	  .authenticated = 1,
 	},
 	{ .name = L"db",
 	  .text = L"The Allowed Signatures Database (db)",
 	  .guid = &SIG_DB,
-	  .multiple = 1,
-	  .sigtypes = 1,
+	  .authenticated = 1,
 	},
 	{ .name = L"dbx",
 	  .text = L"The Forbidden Signatures Database (dbx)",
 	  .guid = &SIG_DB,
-	  .multiple = 1,
-	  .sigtypes = 1,
+	  .authenticated = 1,
 	},
+	{ .name = L"MokList",
+	  .text = L"The Machine Owner Key List (MokList)",
+	  .guid = &MOK_OWNER,
+	  .authenticated = 0,
+	}
 };
 static const int keyinfo_size = ARRAY_SIZE(keyinfo);
 
@@ -76,6 +76,7 @@ select_and_apply(CHAR16 **title, CHAR16 *ext, int key, UINTN options)
 	EFI_STATUS status;
 	EFI_FILE *file;
 	EFI_HANDLE h = NULL;
+	int use_setsecurevariable = 0;
 
 	simple_file_selector(&h, title, NULL, ext, &file_name);
 	if (file_name == NULL)
@@ -93,21 +94,37 @@ select_and_apply(CHAR16 **title, CHAR16 *ext, int key, UINTN options)
 	/* PK is different: need to update with an authenticated bundle
 	 * including a signature with the new PK */
 	if (StrCmp(&file_name[StrLen(file_name) - 4], L".esl") == 0) {
-		status = SetSecureVariable(keyinfo[key].name, esl, size,
-				*keyinfo[key].guid, options, 0);
+		if (keyinfo[key].authenticated)
+			use_setsecurevariable = 1;
+		else
+			use_setsecurevariable = 0;
 	} else if (StrCmp(&file_name[StrLen(file_name) - 5], L".auth") == 0) {
-		status = uefi_call_wrapper(RT->SetVariable, 5,
-					   keyinfo[key].name, keyinfo[key].guid,
-					   EFI_VARIABLE_NON_VOLATILE
-					   | EFI_VARIABLE_RUNTIME_ACCESS 
-					   | EFI_VARIABLE_BOOTSERVICE_ACCESS
-					   | EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS
-					   | options,
-				   size, esl);
+		use_setsecurevariable = 0;
+		options |= EFI_VARIABLE_RUNTIME_ACCESS
+			| EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS;
+; 
+
+		if (!keyinfo[key].authenticated) {
+			console_errorbox(L"Can't set MOK variables with a .auth file");
+			return;
+		}
 	} else {
 		/* do something about .cer case */
 		console_errorbox(L"Handling .cer files is unimplemented");
 		return;
+	}
+	if (use_setsecurevariable) {
+		status = SetSecureVariable(keyinfo[key].name, esl, size,
+					   *keyinfo[key].guid, options, 0);
+	} else {
+	Print(L"use_setsecurevariable = %d\n", use_setsecurevariable);
+	console_get_keystroke();
+		status = uefi_call_wrapper(RT->SetVariable, 5,
+					   keyinfo[key].name, keyinfo[key].guid,
+					   EFI_VARIABLE_NON_VOLATILE
+					   | EFI_VARIABLE_BOOTSERVICE_ACCESS
+					   | options,
+				   size, esl);
 	}
 	if (status != EFI_SUCCESS) {
 		console_error(L"Failed to update variable", status);
@@ -181,8 +198,17 @@ show_key(int key, int offset, void *Data, int DataSize)
 				CopyMem(Cert, (void *)Cert + CertList->SignatureSize, DataSize - (Data - (void *)Cert));
 		}
 
-		status = SetSecureVariable(keyinfo[key].name, Data, DataSize,
-					   *keyinfo[key].guid, 0, 0);	
+		if (keyinfo[key].authenticated)
+			status = SetSecureVariable(keyinfo[key].name, Data,
+						   DataSize,
+						   *keyinfo[key].guid, 0, 0);
+		else
+			status = uefi_call_wrapper(RT->SetVariable, 5,
+					keyinfo[key].name, keyinfo[key].guid,
+					EFI_VARIABLE_NON_VOLATILE
+					| EFI_VARIABLE_BOOTSERVICE_ACCESS,
+					DataSize, Data);
+
 		if (status != EFI_SUCCESS)
 			console_error(L"Failed to delete key", status);
 

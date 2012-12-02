@@ -52,6 +52,8 @@
 #include <efilib.h>
 
 #include <pecoff.h>
+#include <guid.h>
+#include <simple_file.h>
 
 EFI_STATUS
 pecoff_read_header(PE_COFF_LOADER_IMAGE_CONTEXT *context, void *data)
@@ -241,6 +243,40 @@ pecoff_relocate(PE_COFF_LOADER_IMAGE_CONTEXT *context, void **data)
 	}
 
 	return EFI_SUCCESS;
+}
+
+EFI_STATUS
+pecoff_execute_checked(EFI_HANDLE image, EFI_SYSTEM_TABLE *systab, CHAR16 *name)
+{
+	EFI_STATUS status;
+	EFI_LOADED_IMAGE *li;
+	EFI_DEVICE_PATH *loadpath = NULL;
+	CHAR16 *PathName = NULL;
+	EFI_HANDLE h;
+	EFI_FILE *file;
+
+	status = uefi_call_wrapper(BS->HandleProtocol, 3, image,
+				   &IMAGE_PROTOCOL, &li);
+	if (status != EFI_SUCCESS)
+		return status;
+	status = generate_path(name, li, &loadpath, &PathName);
+	if (status != EFI_SUCCESS)
+		return status;
+	status = uefi_call_wrapper(BS->LoadImage, 6, FALSE, image,
+				   loadpath, NULL, 0, &h);
+	if (status != EFI_SUCCESS)
+		/* this will fail if signature validation fails */
+		return status;
+	uefi_call_wrapper(BS->UnloadImage, 1, h);
+
+	status = simple_file_open(image, name, &file, EFI_FILE_MODE_READ);
+	if (status != EFI_SUCCESS)
+		return status;
+
+	pecoff_execute_image(file, name, image, systab);
+	simple_file_close(file);
+
+	return status;
 }
 
 EFI_STATUS

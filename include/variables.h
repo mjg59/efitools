@@ -25,3 +25,7 @@ UINT64
 GetOSIndications(void);
 EFI_STATUS
 SETOSIndicationsAndReboot(UINT64 indications);
+int
+variable_is_secureboot(void);
+int
+variable_is_setupmode(void);

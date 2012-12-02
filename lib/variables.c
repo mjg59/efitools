@@ -274,3 +274,30 @@ find_in_variable_esl(CHAR16* var, EFI_GUID owner, UINT8 *key, UINTN keylen)
 	}
 	return EFI_NOT_FOUND;
 }
+
+int
+variable_is_setupmode(void)
+{
+	/* set to 1 because we return true if SetupMode doesn't exist */
+	UINT8 SetupMode = 1;
+	UINTN DataSize = sizeof(SetupMode);
+
+	uefi_call_wrapper(RT->GetVariable, 5, L"SetupMode", &GV_GUID, NULL,
+			  &DataSize, &SetupMode);
+
+	return SetupMode;
+}
+
+int
+variable_is_secureboot(void)
+{
+	/* return false if variable doesn't exist */
+	UINT8 SecureBoot = 0;
+	UINTN DataSize;
+
+	DataSize = sizeof(SecureBoot);
+	uefi_call_wrapper(RT->GetVariable, 5, L"SecureBoot", &GV_GUID, NULL,
+			  &DataSize, &SecureBoot);
+
+	return SecureBoot;
+}

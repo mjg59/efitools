@@ -448,11 +448,8 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		CHAR16 line2[80], line3[80], **title;
 		int option;
 
-		DataSize = sizeof(SetupMode);
-		uefi_call_wrapper(RT->GetVariable, 5, L"SetupMode", &GV_GUID, NULL, &DataSize, &SetupMode);
-
-		DataSize = sizeof(SecureBoot);
-		uefi_call_wrapper(RT->GetVariable, 5, L"SecureBoot", &GV_GUID, NULL, &DataSize, &SecureBoot);
+		SetupMode = variable_is_setupmode();
+		SecureBoot = variable_is_secureboot();
 
 		line2[0] = line3[0] = L'\0';
 

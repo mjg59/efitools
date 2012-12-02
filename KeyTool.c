@@ -323,39 +323,7 @@ select_key(void)
 	}
 }
 
-void
-transition_to_uefi_menu(void)
-{
-	int option;
-	UINT64 indications = GetOSIndications();
-
-	if ((indications & EFI_OS_INDICATIONS_BOOT_TO_FW_UI) == 0) {
-		console_errorbox(L"Platform Does not Support rebooting to firmware menu");
-		return;
-	}
-
-	option = console_yes_no( (CHAR16 *[]){
-			L"About to reboot to UEFI Setup Menu",
-			L"",
-			L"For more details about your system's setup menu",
-			L"Including how to reset the system to setup mode, see",
-			L"",
-			L"http://www.linuxfoundation.org/uefi",
-			L"",
-			L"Note: This option only works on machines supporting",
-			L"UEFI 2.3.1 Errata C and later",
-			NULL
-		});
-	/* user said no */
-	if (option == 0)
-		return;
-
-	SETOSIndicationsAndReboot(EFI_OS_INDICATIONS_BOOT_TO_FW_UI);
-
-	return;
-}
-
-void
+static void
 save_keys(void)
 {
 	EFI_HANDLE vol;
@@ -459,7 +427,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		StrCat(line3, SecureBoot ? L"on" : L"off");
 		title =  (CHAR16 *[]){L"KeyTool main menu", L"", line2, line3, NULL };
 
-		option = console_select(title, (CHAR16 *[]){ L"Save Keys", L"Edit Keys", L"UEFI Setup Menu", L"Exit", NULL }, 0);
+		option = console_select(title, (CHAR16 *[]){ L"Save Keys", L"Edit Keys", L"Exit", NULL }, 0);
 
 		switch (option) {
 		case 0:
@@ -469,10 +437,6 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 			select_key();
 			break;
 		case 2:
-			/* use OS options to return to UEFI menu */
-			transition_to_uefi_menu();
-			break;
-		case 3:
 			/* exit from programme */
 			return EFI_SUCCESS;
 		default:

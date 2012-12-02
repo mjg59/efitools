@@ -225,14 +225,15 @@ SETOSIndicationsAndReboot(UINT64 indications)
 }
 
 EFI_STATUS
-get_variable(CHAR16 *var, UINT8 **data, UINTN *len, EFI_GUID owner)
+get_variable_attr(CHAR16 *var, UINT8 **data, UINTN *len, EFI_GUID owner,
+		  UINT32 *attributes)
 {
 	EFI_STATUS efi_status;
 
 	*len = 0;
 
-	efi_status = uefi_call_wrapper(RT->GetVariable, 5, var, &owner, NULL,
-				       len, NULL);
+	efi_status = uefi_call_wrapper(RT->GetVariable, 5, var, &owner,
+				       NULL, len, NULL);
 	if (efi_status != EFI_BUFFER_TOO_SMALL)
 		return efi_status;
 
@@ -240,14 +241,20 @@ get_variable(CHAR16 *var, UINT8 **data, UINTN *len, EFI_GUID owner)
 	if (!data)
 		return EFI_OUT_OF_RESOURCES;
 	
-	efi_status = uefi_call_wrapper(RT->GetVariable, 5, var, &owner, NULL,
-				       len, *data);
+	efi_status = uefi_call_wrapper(RT->GetVariable, 5, var, &owner,
+				       attributes, len, *data);
 
 	if (efi_status != EFI_SUCCESS) {
 		FreePool(*data);
 		*data = NULL;
 	}
 	return efi_status;
+}
+
+EFI_STATUS
+get_variable(CHAR16 *var, UINT8 **data, UINTN *len, EFI_GUID owner)
+{
+	return get_variable_attr(var, data, len, owner, NULL);
 }
 
 EFI_STATUS

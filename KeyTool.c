@@ -117,8 +117,6 @@ select_and_apply(CHAR16 **title, CHAR16 *ext, int key, UINTN options)
 		status = SetSecureVariable(keyinfo[key].name, esl, size,
 					   *keyinfo[key].guid, options, 0);
 	} else {
-	Print(L"use_setsecurevariable = %d\n", use_setsecurevariable);
-	console_get_keystroke();
 		status = uefi_call_wrapper(RT->SetVariable, 5,
 					   keyinfo[key].name, keyinfo[key].guid,
 					   EFI_VARIABLE_NON_VOLATILE

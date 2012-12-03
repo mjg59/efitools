@@ -212,11 +212,8 @@ SETOSIndicationsAndReboot(UINT64 indications)
 				       | EFI_VARIABLE_BOOTSERVICE_ACCESS,
 				       DataSize, &indications);
 
-	if (efi_status != EFI_SUCCESS) {
-		Print(L"GetVariable returned %d\n", efi_status);
-		console_get_keystroke();
+	if (efi_status != EFI_SUCCESS)
 		return efi_status;
-	}
 
 	uefi_call_wrapper(RT->ResetSystem, 4, EfiResetWarm, EFI_SUCCESS, 0, NULL);
 	/* does not return */

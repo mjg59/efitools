@@ -312,7 +312,7 @@ pecoff_execute_checked(EFI_HANDLE image, EFI_SYSTEM_TABLE *systab, CHAR16 *name)
 		return status;
 	status = uefi_call_wrapper(BS->LoadImage, 6, FALSE, image,
 				   loadpath, NULL, 0, &h);
-	if (status == EFI_SECURITY_VIOLATION)
+	if (status == EFI_SECURITY_VIOLATION || status == EFI_ACCESS_DENIED)
 		status = pecoff_check_mok(image, name);
 	if (status != EFI_SUCCESS)
 		/* this will fail if signature validation fails */

@@ -13,8 +13,8 @@
 #include <console.h>
 #include <errors.h>
 
-CHAR16 *loader = L"loader.efi";
-CHAR16 *hashtool = L"HashTool.efi";
+CHAR16 *loader = L"\\loader.efi";
+CHAR16 *hashtool = L"\\HashTool.efi";
 
 EFI_STATUS
 efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
@@ -28,7 +28,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	if (status == EFI_SUCCESS)
 		return status;
 
-	if (status != EFI_SECURITY_VIOLATION) {
+	if (status != EFI_SECURITY_VIOLATION && status != EFI_ACCESS_DENIED) {
 		CHAR16 buf[256];
 
 		StrCpy(buf, L"Failed to start ");

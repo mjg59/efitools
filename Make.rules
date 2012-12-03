@@ -58,11 +58,14 @@ endif
 %-subkey.crt: %-subkey.csr KEK.crt
 	openssl x509 -req -in $< -CA DB.crt -CAkey DB.key -set_serial 1 -out $@ -days 365
 
-%-db-signed.efi: %.efi DB.crt
+%-signed.efi: %.efi DB.crt
 	sbsign --key DB.key --cert DB.crt --output $@ $<
 
-%-kek-signed.efi: %.efi KEK.crt
-	sbsign --key KEK.key --cert KEK.crt --output $@ $<
+##
+# No need for KEK signing
+##
+#%-kek-signed.efi: %.efi KEK.crt
+#	sbsign --key KEK.key --cert KEK.crt --output $@ $<
 
 %.a:
 	ar rcv $@ $^

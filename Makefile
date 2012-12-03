@@ -6,8 +6,7 @@ export TOPDIR	:= $(shell pwd)/
 
 include Make.rules
 
-EFISIGNED = $(patsubst %.efi,%-db-signed.efi,$(EFIFILES)) \
-	$(patsubst %.efi,%-kek-signed.efi,$(EFIFILES))
+EFISIGNED = $(patsubst %.efi,%-signed.efi,$(EFIFILES))
 
 all: $(EFISIGNED) $(BINARIES) $(MANPAGES) noPK.auth
 
@@ -29,7 +28,8 @@ lib/lib.a lib/lib-efi.a: FORCE
 PK.crt KEK.crt DB.crt:
 	openssl req -new -x509 -newkey rsa:2048 -subj "/CN=$*/" -keyout $*.key -out $@ -days 3650 -nodes -sha256
 
-.KEEP: PK.crt KEK.crt DB.crt PK.key KEK.key DB.key $(EFIFILES)
+.KEEP: PK.crt KEK.crt DB.crt PK.key KEK.key DB.key PK.esl DB.esl KEK.esl \
+	$(EFIFILES)
 
 LockDown.o: PK.h KEK.h DB.h
 

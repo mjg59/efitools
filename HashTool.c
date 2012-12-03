@@ -17,7 +17,7 @@
 #include <efiauthenticated.h>
 #include <guid.h>
 
-static CHAR16* keytoolbin = L"KeyTool.efi";
+static CHAR16* keytoolbin = L"\\KeyTool.efi";
 static int transition_to_setup = 0, reboot_to_uefi_menu = 0;
 static EFI_HANDLE im;
 

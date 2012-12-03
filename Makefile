@@ -52,6 +52,7 @@ LockDown.so: lib/lib-efi.a
 KeyTool.so: lib/lib-efi.a
 HashTool.so: lib/lib-efi.a
 PreLoader.so: lib/lib-efi.a
+HelloWorld.so: lib/lib-efi.a
 
 cert-to-efi-sig-list: cert-to-efi-sig-list.o lib/lib.a
 	$(CC) -o $@ $< -lcrypto lib/lib.a

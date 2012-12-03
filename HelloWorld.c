@@ -1,17 +1,18 @@
-/*
- * file from gnu-efi-3.0q as t2.c
- */
-
 #include <efi.h>
 #include <efilib.h>
+
+#include <console.h>
 
 EFI_STATUS
 efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 {
-	SIMPLE_TEXT_OUTPUT_INTERFACE *conout;
+	InitializeLib(image, systab);
 
-	conout = systab->ConOut;
-	uefi_call_wrapper(conout->OutputString, 2, conout, L"Hello World!\n\r");
-
-	return EFI_SUCCESS;
+	console_alertbox((CHAR16 *[]) {
+			L"HelloWorld",
+			L"",
+			L"This file is used to prove you have managed",
+			L"To execute an unsigned binary in secure boot mode",
+			NULL,
+		});
 }

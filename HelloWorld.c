@@ -15,4 +15,6 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 			L"To execute an unsigned binary in secure boot mode",
 			NULL,
 		});
+
+	return EFI_SUCCESS;
 }

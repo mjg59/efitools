@@ -17,6 +17,7 @@ install: all
 	$(INSTALL) -m 755 $(EFIFILES) $(EFIDIR)
 	$(INSTALL) -m 755 -d $(BINDIR)
 	$(INSTALL) -m 755 $(BINARIES) $(BINDIR)
+	$(INSTALL) -m 755 mkusb.sh $(BINDIR)/efitool-mkusb
 	$(INSTALL) -m 755 -d $(DOCDIR)
 	$(INSTALL) -m 644 README COPYING $(DOCDIR)
 

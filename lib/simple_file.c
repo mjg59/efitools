@@ -133,7 +133,8 @@ generate_path(CHAR16* name, EFI_LOADED_IMAGE *li, EFI_DEVICE_PATH **grubpath, CH
 		devpath = NextDevicePathNode(devpath);
 	}
 
-	StrCat(*PathName, L"\\");
+	if (name[0] != '\\')
+		StrCat(*PathName, L"\\");
 	StrCat(*PathName, name);
 
 	*grubpath = FileDevicePath(device, *PathName);

@@ -285,20 +285,28 @@ pecoff_check_mok(EFI_HANDLE image, CHAR16 *name)
 	if (find_in_variable_esl(L"dbx", SIG_DB, hash, SHA256_DIGEST_SIZE)
 	    == EFI_SUCCESS)
 		/* MOK list cannot override dbx */
-		return EFI_SECURITY_VIOLATION;
+		goto check_tmplist;
 
 	status = get_variable_attr(L"MokList", &data, &len, MOK_OWNER, &attr);
 	if (status != EFI_SUCCESS)
-		return EFI_SECURITY_VIOLATION;
+		goto check_tmplist;
 	FreePool(data);
 
 	if (attr & EFI_VARIABLE_RUNTIME_ACCESS)
-		return EFI_SECURITY_VIOLATION;
+		goto check_tmplist;
 
-	if (find_in_variable_esl(L"MokList", MOK_OWNER, hash, SHA256_DIGEST_SIZE) != EFI_SUCCESS)
-		return EFI_SECURITY_VIOLATION;
+	if (find_in_variable_esl(L"MokList", MOK_OWNER, hash, SHA256_DIGEST_SIZE) == EFI_SUCCESS)
+		return EFI_SUCCESS;
 
-	return EFI_SUCCESS;
+ check_tmplist:
+	status = get_variable_attr(L"tmpHashList", &data, &len, MOK_OWNER,
+				   &attr);
+	if (status == EFI_SUCCESS && attr == EFI_VARIABLE_BOOTSERVICE_ACCESS
+	    && find_in_variable_esl(L"tmpHashList", MOK_OWNER, hash,
+				    SHA256_DIGEST_SIZE) == EFI_SUCCESS)
+		return EFI_SUCCESS;
+
+	return EFI_SECURITY_VIOLATION;
 }
 
 EFI_STATUS

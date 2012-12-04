@@ -37,6 +37,9 @@ endif
 %.h: %.auth
 	xxd -i $< > $@
 
+%.hash: %.efi hash-to-efi-sig-list
+	./hash-to-efi-sig-list $< $@
+
 %.esl: %.crt cert-to-efi-sig-list
 	./cert-to-efi-sig-list -g $(MYGUID) $< $@
 

@@ -9,9 +9,12 @@
 #include <efi.h>
 #include <efilib.h>
 
+#include <guid.h>
 #include <pecoff.h>
 #include <console.h>
 #include <errors.h>
+
+#include "hashlist.h"
 
 CHAR16 *loader = L"\\loader.efi";
 CHAR16 *hashtool = L"\\HashTool.efi";
@@ -22,6 +25,14 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	EFI_STATUS status;
 
 	InitializeLib(image, systab);
+
+	/* Transfer from built in hash list to tmpHashList variable */
+	uefi_call_wrapper(RT->SetVariable, 5, L"tmpHashList", &MOK_OWNER,
+			  EFI_VARIABLE_BOOTSERVICE_ACCESS,
+			  (UINTN)_tmp_tmp_hash_len, _tmp_tmp_hash);
+
+	Print(L"ABOUT TO EXECUTE %s\n", loader);
+	console_get_keystroke();
 
 	status = pecoff_execute_checked(image, systab, loader);
 

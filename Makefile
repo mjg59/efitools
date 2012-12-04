@@ -34,6 +34,7 @@ PK.crt KEK.crt DB.crt:
 	$(EFIFILES)
 
 LockDown.o: PK.h KEK.h DB.h
+PreLoader.o: hashlist.h
 
 PK.h: PK.auth
 
@@ -46,6 +47,12 @@ noPK.esl:
 
 noPK.auth: noPK.esl PK.crt sign-efi-sig-list
 	./sign-efi-sig-list -c PK.crt -k PK.key PK $< $@
+
+hashlist.h: KeyTool.hash HashTool.hash Loader.hash
+	cat $^ > /tmp/tmp.hash
+	xxd -i /tmp/tmp.hash > $@
+	rm -f /tmp/tmp.hash
+
 
 Loader.so: lib/lib-efi.a
 ReadVars.so: lib/lib-efi.a

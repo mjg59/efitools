@@ -17,7 +17,7 @@
 #include <efiauthenticated.h>
 #include <guid.h>
 
-CHAR16 *loader = L"loader.efi";
+CHAR16 *loader = L"\\linux-loader.efi";
 
 /* get the user's permission to boot the image */
 int ask_to_boot(void)

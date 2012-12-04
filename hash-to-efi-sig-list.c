@@ -20,17 +20,12 @@
 #include <sha256.h>
 #include <efiauthenticated.h>
 #include <guid.h>
+#include <version.h>
 
 static void
 usage(const char *progname)
 {
 	printf("Usage: %s efi-binary efi-signature-list\n", progname);
-}
-
-static void
-version(const char *progname)
-{
-	printf("%s 0.1\n", progname);
 }
 
 static void

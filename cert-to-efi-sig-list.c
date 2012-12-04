@@ -17,12 +17,7 @@
 #include <openssl/err.h>
 
 #include <variables.h>
-
-static void
-version(const char *progname)
-{
-	printf("%s 0.1", progname);
-}
+#include <version.h>
 
 static void
 usage(const char *progname)

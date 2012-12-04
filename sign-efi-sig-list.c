@@ -23,17 +23,12 @@
 
 #include <variables.h>
 #include <guid.h>
+#include <version.h>
 
 static void
 usage(const char *progname)
 {
 	printf("Usage: %s [-r] [-m] [-a] [-g <guid>] [-o] [-t <timestamp>] [-i <infile>] [-c <crt file>] [-k <key file>] <var> <efi sig list file> <output file>\n", progname);
-}
-
-static void
-version(const char *progname)
-{
-	printf("%s 0.1\n", progname);
 }
 
 static void

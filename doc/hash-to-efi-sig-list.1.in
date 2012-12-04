@@ -1,0 +1,17 @@
+[name]
+hash-efi-sig-list - create a hash signature list entry from a binary
+
+[examples]
+
+To create a hash efi-signature-list in the file hash.esl from the binary
+HelloWorld.efi do
+
+hash-efi-sig-list HelloWorld.efi hash.esl
+
+This hash file can now be placed directly (or as an update) into the db
+variables with UpdateVar
+
+[see also]
+
+sign-efi-sig-list(1) for details on how to produce authenticated update files
+for the db variable.

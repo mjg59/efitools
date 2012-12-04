@@ -58,6 +58,13 @@
 #include <sha256.h>
 #include <errors.h>
 
+#ifndef BUILD_EFI
+#define Print(...) do { } while(0)
+#define AllocatePool(x) malloc(x)
+#define CopyMem(d, s, l) memcpy(d, s, l)
+#define ZeroMem(s, l) memset(s, 0, l)
+#endif
+
 EFI_STATUS
 pecoff_read_header(PE_COFF_LOADER_IMAGE_CONTEXT *context, void *data)
 {
@@ -248,6 +255,7 @@ pecoff_relocate(PE_COFF_LOADER_IMAGE_CONTEXT *context, void **data)
 	return EFI_SUCCESS;
 }
 
+#ifdef BUILD_EFI
 EFI_STATUS
 pecoff_check_mok(EFI_HANDLE image, CHAR16 *name)
 {
@@ -372,3 +380,4 @@ pecoff_execute_image(EFI_FILE *file, CHAR16 *name, EFI_HANDLE image,
 
 	return efi_status;
 }
+#endif

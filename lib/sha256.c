@@ -25,6 +25,14 @@
 #include <pecoff.h>
 #include <simple_file.h>
 
+#ifndef BUILD_EFI
+#define Print(...) do { } while(0)
+#define AllocatePool(x) malloc(x)
+#define CopyMem(d, s, l) memcpy(d, s, l)
+#define ZeroMem(s, l) memset(s, 0, l)
+#define FreePool(s) free(s)
+#endif
+
 #define GET_UINT32(n,b,i)                       \
 {                                               \
     (n) = ( (uint32) (b)[(i)    ] << 24 )       \
@@ -264,12 +272,9 @@ void sha256_finish( sha256_context *ctx, uint8 digest[SHA256_DIGEST_SIZE] )
 }
 
 EFI_STATUS
-sha256_get_pecoff_digest(EFI_HANDLE device, CHAR16 *name, uint8 hash[SHA256_DIGEST_SIZE])
+sha256_get_pecoff_digest_mem(void *buffer, UINTN DataSize,
+			     UINT8 hash[SHA256_DIGEST_SIZE])
 {
-	EFI_STATUS efi_status;
-	EFI_FILE *file;
-	UINTN DataSize;
-	void *buffer;
 	PE_COFF_LOADER_IMAGE_CONTEXT context;
 	sha256_context ctx;
 	void *hashbase;
@@ -277,30 +282,18 @@ sha256_get_pecoff_digest(EFI_HANDLE device, CHAR16 *name, uint8 hash[SHA256_DIGE
 	EFI_IMAGE_SECTION_HEADER *section;
 	EFI_IMAGE_SECTION_HEADER **sections;
 	int  i, sum_of_bytes;
-	
-	efi_status = simple_file_open(device, name, &file, EFI_FILE_MODE_READ);
-	if (efi_status != EFI_SUCCESS) {
-		Print(L"Failed to open %s\n", name);
-		return efi_status;
-	}
-
-	efi_status = simple_file_read_all(file, &DataSize, &buffer);
-	if (efi_status != EFI_SUCCESS) {
-		Print(L"Failed to read %s\n", name);
-		goto out_close_file;
-	}
+	EFI_STATUS efi_status;
 
 	efi_status = pecoff_read_header(&context, buffer);
 	if (efi_status != EFI_SUCCESS) {
 		Print(L"Failed to read header\n");
-		goto out_free;
+		return efi_status;
 	}
 		
 	sections = AllocatePool(context.PEHdr->Pe32.FileHeader.NumberOfSections * sizeof(*sections));
-	if (!sections) {
-		efi_status = EFI_OUT_OF_RESOURCES;
-		goto out_free;
-	}	
+	if (!sections)
+		return EFI_OUT_OF_RESOURCES;
+
 	sha256_starts(&ctx);
 
 	/* hash start to checksum */
@@ -352,12 +345,37 @@ sha256_get_pecoff_digest(EFI_HANDLE device, CHAR16 *name, uint8 hash[SHA256_DIGE
 	}
 	sha256_finish(&ctx, hash);
 
-	efi_status = EFI_SUCCESS;
-
 	FreePool(sections);
- out_free:
+
+	return EFI_SUCCESS;
+}
+
+#ifdef BUILD_EFI
+EFI_STATUS
+sha256_get_pecoff_digest(EFI_HANDLE device, CHAR16 *name, uint8 hash[SHA256_DIGEST_SIZE])
+{
+	EFI_STATUS efi_status;
+	EFI_FILE *file;
+	UINTN DataSize;
+	void *buffer;
+	
+	efi_status = simple_file_open(device, name, &file, EFI_FILE_MODE_READ);
+	if (efi_status != EFI_SUCCESS) {
+		Print(L"Failed to open %s\n", name);
+		return efi_status;
+	}
+
+	efi_status = simple_file_read_all(file, &DataSize, &buffer);
+	if (efi_status != EFI_SUCCESS) {
+		Print(L"Failed to read %s\n", name);
+		goto out_close_file;
+	}
+
+	efi_status = sha256_get_pecoff_digest_mem(buffer, DataSize, hash);
+
 	FreePool(buffer);
  out_close_file:
 	simple_file_close(file);
 	return efi_status;
 }
+#endif

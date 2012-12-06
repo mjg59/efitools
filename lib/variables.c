@@ -259,8 +259,6 @@ find_in_esl(UINT8 *Data, UINTN DataSize, UINT8 *key, UINTN keylen)
 {
 	EFI_SIGNATURE_LIST *CertList;
 
-	Print(L"FIND IN ESL %lx[%d]\n", Data, DataSize);
-
 	for (CertList = (EFI_SIGNATURE_LIST *) Data;
 	     DataSize > 0
 	     && DataSize >= CertList->SignatureListSize;

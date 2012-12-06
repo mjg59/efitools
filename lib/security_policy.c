@@ -134,18 +134,12 @@ static UINT64 security_policy_authentication (
 
 	status = security_policy_check_mok(FileBuffer, FileSize);
 
-	Print(L"IN SECURITY VALIDATION MOK on %lx,%lx,%lx,%ld) returns %d\n", This,DevicePath,FileBuffer,FileSize, status);
-	console_get_keystroke();
-
 	if (status == EFI_SUCCESS)
 		return status;
 
 	/* chain previous policy (UEFI security validation) */
 	status = uefi_call_wrapper(es2fa, 5, This, DevicePath, FileBuffer,
 				   FileSize, BootPolicy);
-
-	Print(L"Previous Security Policy returns %d\n", status);
-	console_get_keystroke();
 
 	return status;
 }
@@ -165,8 +159,6 @@ security_policy_install(void)
 				   &security2_protocol);
 	if (status != EFI_SUCCESS)
 		return status;
-
-	Print(L"SECURITY2 PROTOCOL returns %lx, new func is %lx\n", security2_protocol, security_policy_authentication);
 
 	es2fa = security2_protocol->FileAuthentication;
 	security2_protocol->FileAuthentication = 

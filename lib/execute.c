@@ -153,9 +153,6 @@ execute(EFI_HANDLE image, CHAR16 *name)
 	if (status != EFI_SUCCESS)
 		return status;
 
-	Print(L"Generated path is %s\n", PathName);
-	console_get_keystroke();
-
 	status = uefi_call_wrapper(BS->LoadImage, 6, FALSE, image,
 				   devpath, NULL, 0, &h);
 	if (status != EFI_SUCCESS)

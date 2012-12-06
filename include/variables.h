@@ -20,6 +20,8 @@ EFI_STATUS
 get_variable_attr(CHAR16 *var, UINT8 **data, UINTN *len, EFI_GUID owner,
 		  UINT32 *attributes);
 EFI_STATUS
+find_in_esl(UINT8 *Data, UINTN DataSize, UINT8 *key, UINTN keylen);
+EFI_STATUS
 find_in_variable_esl(CHAR16* var, EFI_GUID owner, UINT8 *key, UINTN keylen);
 
 #define EFI_OS_INDICATIONS_BOOT_TO_FW_UI 0x0000000000000001

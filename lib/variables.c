@@ -255,16 +255,12 @@ get_variable(CHAR16 *var, UINT8 **data, UINTN *len, EFI_GUID owner)
 }
 
 EFI_STATUS
-find_in_variable_esl(CHAR16* var, EFI_GUID owner, UINT8 *key, UINTN keylen)
+find_in_esl(UINT8 *Data, UINTN DataSize, UINT8 *key, UINTN keylen)
 {
-	UINTN DataSize;
-	UINT8 *Data;
-	EFI_STATUS status;
 	EFI_SIGNATURE_LIST *CertList;
 
-	status = get_variable(var, &Data, &DataSize, owner);
-	if (status != EFI_SUCCESS)
-		return status;
+	Print(L"FIND IN ESL %lx[%d]\n", Data, DataSize);
+
 	for (CertList = (EFI_SIGNATURE_LIST *) Data;
 	     DataSize > 0
 	     && DataSize >= CertList->SignatureListSize;
@@ -277,6 +273,24 @@ find_in_variable_esl(CHAR16* var, EFI_GUID owner, UINT8 *key, UINTN keylen)
 			return EFI_SUCCESS;
 	}
 	return EFI_NOT_FOUND;
+}
+
+EFI_STATUS
+find_in_variable_esl(CHAR16* var, EFI_GUID owner, UINT8 *key, UINTN keylen)
+{
+	UINTN DataSize;
+	UINT8 *Data;
+	EFI_STATUS status;
+
+	status = get_variable(var, &Data, &DataSize, owner);
+	if (status != EFI_SUCCESS)
+		return status;
+
+	status = find_in_esl(Data, DataSize, key, keylen);
+
+	FreePool(Data);
+
+	return status;
 }
 
 int

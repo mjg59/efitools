@@ -25,9 +25,7 @@ void sha256_finish( sha256_context *ctx, uint8 digest[32] );
 EFI_STATUS
 sha256_get_pecoff_digest_mem(void *buffer, UINTN DataSize,
 			     UINT8 hash[SHA256_DIGEST_SIZE]);
-#ifdef BUILD_EFI
 EFI_STATUS
 sha256_get_pecoff_digest(EFI_HANDLE device, CHAR16 *name, uint8 digest[SHA256_DIGEST_SIZE]);
-#endif
 #endif /* sha256.h */
 

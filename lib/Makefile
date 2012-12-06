@@ -1,4 +1,5 @@
-LIBFILES = simple_file.o pecoff.o variables.o guid.o sha256.o console.o
+LIBFILES = simple_file.o pecoff.o variables.o guid.o sha256.o console.o \
+	security_policy.o
 EFILIBFILES = $(patsubst %.o,%.efi.o,$(LIBFILES))
 
 include ../Make.rules

@@ -340,23 +340,37 @@ simple_dir_filter(EFI_HANDLE image, CHAR16 *name, CHAR16 *filter,
 	for (i = 0; i < tot; i++) {
 		int len = StrLen(next->FileName);
 
+		if (StrCmp(next->FileName, L".") == 0)
+			/* ignore . directory */
+			goto next;
+
 		if (next->Attribute & EFI_FILE_DIRECTORY) {
 				(*result)[(*count)] = next->FileName;
 				(*result)[(*count)][len] = '/';
 				(*result)[(*count)++][len + 1] = '\0';
-		} else {
-			for (c = 0; c < filtercount; c++) {
-				offs = StrLen(filterarr[c]);
-
-				if (StrCmp(&next->FileName[len - offs], filterarr[c]) == 0) {
-					(*result)[(*count)++] = next->FileName;
-				} else {
-					continue;
-				}
-				break;
-			}
+				goto next;
 		}
-		
+
+		for (c = 0; c < filtercount; c++) {
+			offs = StrLen(filterarr[c]);
+
+			if (StrCmp(&next->FileName[len - offs], filterarr[c]) == 0) {
+				(*result)[(*count)++] = next->FileName;
+			} else {
+				continue;
+			}
+			break;
+		}
+
+	next:		
+		if (StrCmp(next->FileName, L"../") == 0) {
+			/* place .. directory first */
+			CHAR16 *tmp = (*result)[(*count) - 1];
+
+			(*result)[(*count) - 1] = (*result)[0];
+			(*result)[0] = tmp;
+		}
+
 		ptr += OFFSET_OF(EFI_FILE_INFO, FileName) + (len + 1)*sizeof(CHAR16);
 		next = ptr;
 	}

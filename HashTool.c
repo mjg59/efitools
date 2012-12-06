@@ -10,12 +10,12 @@
 #include <efilib.h>
 
 #include <simple_file.h>
-#include <pecoff.h>
 #include <sha256.h>
 #include <variables.h>
 #include <console.h>
 #include <efiauthenticated.h>
 #include <guid.h>
+#include <execute.h>
 
 static CHAR16* keytoolbin = L"\\KeyTool.efi";
 static int transition_to_setup = 0, reboot_to_uefi_menu = 0;
@@ -249,7 +249,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		} else if (option == keytool) {
 			EFI_STATUS status;
 
-			status = pecoff_execute_checked(image, systab, keytoolbin);
+			status = execute(image, keytoolbin);
 			if (status != EFI_SUCCESS)
 				console_error(L"Failed to execute KeyTool", status);
 		} else if (option == setup_mode) {

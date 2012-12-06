@@ -13,7 +13,9 @@ PK.h
 KEK.h
 DB.h
 hashlist.h
+*.hash
 *~
+hash-to-efi-sig-list
 cert-to-efi-sig-list
 sig-list-to-certs
 sign-efi-sig-list

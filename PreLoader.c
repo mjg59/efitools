@@ -22,7 +22,6 @@ EFI_STATUS
 efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 {
 	EFI_STATUS status;
-	
 
 	InitializeLib(image, systab);
 
@@ -51,20 +50,47 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		goto out;
 	}
 
-	status = execute(image, hashtool);
+	console_alertbox((CHAR16 *[]) {
+			L"Failed to start loader",
+			L"",
+			L"It is probably in \\boot\\efi\\loader.efi",
+			L"Please enrol its hash and try again",
+			L"",
+			L"I will now execute HashTool for you to do this",
+			NULL
+		});
 
-	if (status != EFI_SUCCESS) {
-		CHAR16 buf[256];
+	for (;;) {
+		status = execute(image, hashtool);
 
-		StrCpy(buf, L"Failed to start backup programme ");
-		StrCat(buf, hashtool);
-		console_error(buf, status);
+		if (status != EFI_SUCCESS) {
+			CHAR16 buf[256];
 
-		goto out;
+			StrCpy(buf, L"Failed to start backup programme ");
+			StrCat(buf, hashtool);
+			console_error(buf, status);
+
+			goto out;
+		}
+
+		/* try to start the loader again */
+		status = execute(image, loader);
+		if (status == EFI_ACCESS_DENIED
+		    || status == EFI_SECURITY_VIOLATION) {
+			int selection = console_select((CHAR16 *[]) {
+				L"loader is still giving a security error",
+				NULL
+			}, (CHAR16 *[]) {
+				L"Start HashTool",
+				L"Exit",
+				NULL
+			}, 0);
+			if (selection == 0)
+				continue;
+		}
+
+		break;
 	}
-
-	/* try to start the loader again */
-	status = execute(image, loader);
  out:
 	security_policy_uninstall();
 

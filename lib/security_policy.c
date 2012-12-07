@@ -12,6 +12,7 @@
 #include <guid.h>
 #include <sha256.h>
 #include <variables.h>
+#include <simple_file.h>
 #include <errors.h>
 
 #include <security_policy.h>
@@ -20,10 +21,17 @@
  * See the UEFI Platform Initialization manual (Vol2: DXE) for this
  */
 struct _EFI_SECURITY2_PROTOCOL;
+struct _EFI_SECURITY_PROTOCOL;
 struct _EFI_DEVICE_PATH_PROTOCOL;
 typedef struct _EFI_SECURITY2_PROTOCOL EFI_SECURITY2_PROTOCOL;
+typedef struct _EFI_SECURITY_PROTOCOL EFI_SECURITY_PROTOCOL;
 typedef struct _EFI_DEVICE_PATH_PROTOCOL EFI_DEVICE_PATH_PROTOCOL;
 
+typedef EFI_STATUS (EFIAPI *EFI_SECURITY_FILE_AUTHENTICATION_STATE) (
+			const EFI_SECURITY_PROTOCOL *This,
+			UINT32 AuthenticationStatus,
+			const EFI_DEVICE_PATH_PROTOCOL *File
+								     );
 typedef EFI_STATUS (EFIAPI *EFI_SECURITY2_FILE_AUTHENTICATION) (
 			const EFI_SECURITY2_PROTOCOL *This,
 			const EFI_DEVICE_PATH_PROTOCOL *DevicePath,
@@ -35,6 +43,11 @@ typedef EFI_STATUS (EFIAPI *EFI_SECURITY2_FILE_AUTHENTICATION) (
 struct _EFI_SECURITY2_PROTOCOL {
 	EFI_SECURITY2_FILE_AUTHENTICATION FileAuthentication;
 };
+
+struct _EFI_SECURITY_PROTOCOL {
+	EFI_SECURITY_FILE_AUTHENTICATION_STATE  FileAuthenticationState;
+};
+
 
 static UINT8 *security_policy_esl = NULL;
 static UINTN security_policy_esl_len;
@@ -92,7 +105,98 @@ security_policy_check_mok(void *data, UINTN len)
 	return EFI_SECURITY_VIOLATION;
 }
 
+static EFI_SECURITY_FILE_AUTHENTICATION_STATE esfas = NULL;
 static EFI_SECURITY2_FILE_AUTHENTICATION es2fa = NULL;
+
+static EFI_STATUS thunk_security_policy_authentication(
+	const EFI_SECURITY_PROTOCOL *This,
+	UINT32 AuthenticationStatus,
+	const EFI_DEVICE_PATH_PROTOCOL *DevicePath
+						       ) 
+__attribute__((unused));
+
+static EFI_STATUS thunk_security2_policy_authentication(
+	const EFI_SECURITY2_PROTOCOL *This,
+	const EFI_DEVICE_PATH_PROTOCOL *DevicePath,
+	VOID *FileBuffer,
+	UINTN FileSize,
+	BOOLEAN	BootPolicy
+						       ) 
+__attribute__((unused));
+
+static __attribute__((used)) EFI_STATUS
+security2_policy_authentication (
+	const EFI_SECURITY2_PROTOCOL *This,
+	const EFI_DEVICE_PATH_PROTOCOL *DevicePath,
+	VOID *FileBuffer,
+	UINTN FileSize,
+	BOOLEAN	BootPolicy
+				 )
+{
+	EFI_STATUS status;
+
+	status = security_policy_check_mok(FileBuffer, FileSize);
+
+	if (status == EFI_SUCCESS)
+		return status;
+
+	/* chain previous policy (UEFI security validation) */
+	status = uefi_call_wrapper(es2fa, 5, This, DevicePath, FileBuffer,
+				   FileSize, BootPolicy);
+
+	return status;
+}
+
+static __attribute__((used)) EFI_STATUS
+security_policy_authentication (
+	const EFI_SECURITY_PROTOCOL *This,
+	UINT32 AuthenticationStatus,
+	const EFI_DEVICE_PATH_PROTOCOL *DevicePathConst
+	)
+{
+	EFI_STATUS status;
+	EFI_DEVICE_PATH *DevPath 
+		= DuplicateDevicePath((EFI_DEVICE_PATH *)DevicePathConst),
+		*OrigDevPath = DevPath;
+	EFI_HANDLE h;
+	EFI_FILE *f;
+	VOID *FileBuffer;
+	UINTN FileSize;
+	CHAR16* DevPathStr;
+
+	status = uefi_call_wrapper(BS->LocateDevicePath, 3,
+				   &SIMPLE_FS_PROTOCOL, &DevPath, &h);
+	if (status != EFI_SUCCESS)
+		goto chain;
+
+	DevPathStr = DevicePathToStr(DevPath);
+
+	status = simple_file_open_by_handle(h, DevPathStr, &f,
+					    EFI_FILE_MODE_READ);
+	FreePool(DevPathStr);
+	if (status != EFI_SUCCESS)
+		goto chain;
+
+	status = simple_file_read_all(f, &FileSize, &FileBuffer);
+	simple_file_close(f);
+	if (status != EFI_SUCCESS)
+		goto chain;
+
+	status = security_policy_check_mok(FileBuffer, FileSize);
+	FreePool(FileBuffer);
+
+	if (status == EFI_SUCCESS)
+		goto out;
+	
+ chain:
+	status = uefi_call_wrapper(esfas, 3, This, AuthenticationStatus,
+				   DevicePathConst);
+
+ out:
+	FreePool(OrigDevPath);
+	return status;
+}
+
 
 /* Nasty: ELF and EFI have different calling conventions.  Here is the map for
  * calling ELF -> EFI
@@ -118,51 +222,105 @@ static EFI_SECURITY2_FILE_AUTHENTICATION es2fa = NULL;
  * ARG5  -> ARG3
  * ARG6  -> ARG4
  * ARG11 -> ARG5
+ *
+ * Calling conventions also differ over volatile and preserved registers in
+ * MS: RBX, RBP, RDI, RSI, R12, R13, R14, and R15 are considered nonvolatile .
+ * In ELF: Registers %rbp, %rbx and %r12 through %r15 “belong” to the calling
+ * function and the called function is required to preserve their values.
+ *
+ * This means when accepting a function callback from MS -> ELF, we have to do
+ * separate preservation on %rdi, %rsi before swizzling the arguments and
+ * handing off to the ELF function.
  */
 
-static UINT64 security_policy_authentication (
-	UINT64 ARG1, UINT64 ARG2, UINT64 ARG3, UINT64 ARG4, UINT64 ARG5,
-	UINT64 ARG6, UINT64 ARG7, UINT64 ARG8, UINT64 ARG9, UINT64 ARG10,
-	UINT32 ARG11)
-{
-	EFI_STATUS status;
-	const EFI_SECURITY2_PROTOCOL *This = (void *)ARG4;
-	const EFI_DEVICE_PATH_PROTOCOL *DevicePath = (void *)ARG3;
-	VOID *FileBuffer = (void *)ARG5;
-	UINTN FileSize = ARG6;
-	BOOLEAN	BootPolicy = ARG11;
+asm (
+".type security2_policy_authentication,@function\n"
+"thunk_security2_policy_authentication:\n\t"
+	"mov	32(%rsp), %r10	# ARG5\n\t"
+	"push	%rdi\n\t"
+	"push	%rsi\n\t"
+	"mov	%r10, %rdi\n\t"
+	"subq	$8, %rsp	# space for storing stack pad\n\t"
+	"mov	$0x08, %rax\n\t"
+	"mov	$0x10, %r10\n\t"
+	"and	%rsp, %rax\n\t"
+	"cmovnz	%rax, %r11\n\t"
+	"cmovz	%r10, %r11\n\t"
+	"subq	%r11, %rsp\n\t"
+	"addq	$8, %r11\n\t"
+	"mov	%r11, (%rsp)\n\t"
+"# five argument swizzle\n\t"
+	"mov	%rdi, %r10\n\t"
+	"mov	%rcx, %rdi\n\t"
+	"mov	%rdx, %rsi\n\t"
+	"mov	%r8, %rdx\n\t"
+	"mov	%r9, %rcx\n\t"
+	"mov	%r10, %r8\n\t"
+	"callq	security2_policy_authentication@PLT\n\t"
+	"mov	(%rsp), %r11\n\t"
+	"addq	%r11, %rsp\n\t"
+	"pop	%rsi\n\t"
+	"pop	%rdi\n\t"
+	"ret\n"
+);
 
-	status = security_policy_check_mok(FileBuffer, FileSize);
-
-	if (status == EFI_SUCCESS)
-		return status;
-
-	/* chain previous policy (UEFI security validation) */
-	status = uefi_call_wrapper(es2fa, 5, This, DevicePath, FileBuffer,
-				   FileSize, BootPolicy);
-
-	return status;
-}
+asm (
+".type security_policy_authentication,@function\n"
+"thunk_security_policy_authentication:\n\t"
+	"push	%rdi\n\t"
+	"push	%rsi\n\t"
+	"subq	$8, %rsp	# space for storing stack pad\n\t"
+	"mov	$0x08, %rax\n\t"
+	"mov	$0x10, %r10\n\t"
+	"and	%rsp, %rax\n\t"
+	"cmovnz	%rax, %r11\n\t"
+	"cmovz	%r10, %r11\n\t"
+	"subq	%r11, %rsp\n\t"
+	"addq	$8, %r11\n\t"
+	"mov	%r11, (%rsp)\n\t"
+"# three argument swizzle\n\t"
+	"mov	%rcx, %rdi\n\t"
+	"mov	%rdx, %rsi\n\t"
+	"mov	%r8, %rdx\n\t"
+	"callq	security_policy_authentication@PLT\n\t"
+	"mov	(%rsp), %r11\n\t"
+	"addq	%r11, %rsp\n\t"
+	"pop	%rsi\n\t"
+	"pop	%rdi\n\t"
+	"ret\n"
+);
 
 EFI_STATUS
 security_policy_install(void)
 {
-	EFI_SECURITY2_PROTOCOL *security2_protocol;
+	EFI_SECURITY_PROTOCOL *security_protocol;
+	EFI_SECURITY2_PROTOCOL *security2_protocol = NULL;
 	EFI_STATUS status;
 
-	if (es2fa)
+	if (es2fa || esfas)
 		/* Already Installed */
 		return EFI_ALREADY_STARTED;
 
 	status = uefi_call_wrapper(BS->LocateProtocol, 3,
 				   &SECURITY2_PROTOCOL_GUID, NULL,
 				   &security2_protocol);
+
+	if (status == EFI_NOT_FOUND) 
+		status = uefi_call_wrapper(BS->LocateProtocol, 3,
+					   &SECURITY_PROTOCOL_GUID, NULL,
+					   &security_protocol);
 	if (status != EFI_SUCCESS)
 		return status;
 
-	es2fa = security2_protocol->FileAuthentication;
-	security2_protocol->FileAuthentication = 
-		(EFI_SECURITY2_FILE_AUTHENTICATION)security_policy_authentication;
+	if (security2_protocol) {
+		es2fa = security2_protocol->FileAuthentication;
+		security2_protocol->FileAuthentication = 
+			thunk_security2_policy_authentication;
+	} else {
+		esfas = security_protocol->FileAuthenticationState;
+		security_protocol->FileAuthenticationState =
+			thunk_security_policy_authentication;
+	}
 
 	return EFI_SUCCESS;
 }
@@ -170,24 +328,40 @@ security_policy_install(void)
 EFI_STATUS
 security_policy_uninstall(void)
 {
-	EFI_SECURITY2_PROTOCOL *security2_protocol;
 	EFI_STATUS status;
 
-	if (!es2fa)
-		/* Not Installed */
+	if (esfas) {
+		EFI_SECURITY_PROTOCOL *security_protocol;
+
+		status = uefi_call_wrapper(BS->LocateProtocol, 3,
+					   &SECURITY_PROTOCOL_GUID, NULL,
+					   &security_protocol);
+
+		if (status != EFI_SUCCESS)
+			return status;
+
+		security_protocol->FileAuthenticationState = esfas;
+		esfas = NULL;
+
+		return EFI_SUCCESS;
+	} else if (es2fa) {
+		EFI_SECURITY2_PROTOCOL *security2_protocol;
+
+		status = uefi_call_wrapper(BS->LocateProtocol, 3,
+					   &SECURITY2_PROTOCOL_GUID, NULL,
+					   &security2_protocol);
+
+		if (status != EFI_SUCCESS)
+			return status;
+
+		security2_protocol->FileAuthentication = es2fa;
+		es2fa = NULL;
+
+		return EFI_SUCCESS;
+	} else {
+		/* nothing installed */
 		return EFI_NOT_STARTED;
-
-	status = uefi_call_wrapper(BS->LocateProtocol, 3,
-				   &SECURITY2_PROTOCOL_GUID, NULL,
-				   &security2_protocol);
-
-	if (status != EFI_SUCCESS)
-		return status;
-
-	security2_protocol->FileAuthentication = es2fa;
-	es2fa = NULL;
-
-	return EFI_SUCCESS;
+	}
 }
 
 void

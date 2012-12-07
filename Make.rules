@@ -50,7 +50,11 @@ endif
 	$(CC) $(INCDIR) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
 %.efi.o: %.c
-	$(CC) $(INCDIR) $(CFLAGS) $(CPPFLAGS) -DBUILD_EFI -c $< -o $@
+	$(CC) $(INCDIR) $(CFLAGS) $(CPPFLAGS) -fno-toplevel-reorder -DBUILD_EFI -c $< -o $@
+
+%.efi.s: %.c
+	$(CC) -S $(INCDIR) $(CFLAGS) $(CPPFLAGS) -fno-toplevel-reorder -DBUILD_EFI -c $< -o $@
+
 
 %.cer: %.crt
 	openssl x509 -in $< -out $@ -outform DER

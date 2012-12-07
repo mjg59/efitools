@@ -65,16 +65,15 @@ simple_file_open(EFI_HANDLE image, CHAR16 *name, EFI_FILE **file, UINT64 mode)
 
 	if (efi_status != EFI_SUCCESS) {
 		Print(L"Unable to generate load path for %s\n", name);
-		goto error;
+		return efi_status;
 	}
 
 	device = li->DeviceHandle;
 
-	return simple_file_open_by_handle(device, PathName, file, mode);
+	efi_status = simple_file_open_by_handle(device, PathName, file, mode);
 
- error:
-	//if (PathName)
-	//	FreePool(PathName);
+	FreePool(PathName);
+	FreePool(loadpath);
 
 	return efi_status;
 }
@@ -449,7 +448,8 @@ simple_file_selector(EFI_HANDLE *im, CHAR16 **title, CHAR16 *name,
 		} else if (StrCmp(selected, L"../") == 0) {
 			int i;
 
-			FreePool(dmp);
+			i = StrLen(name) - 1;
+
 
 			for (i = StrLen(name); i > 0; --i) {
 				if (name[i] == '\\')
@@ -457,8 +457,13 @@ simple_file_selector(EFI_HANDLE *im, CHAR16 **title, CHAR16 *name,
 			}
 			if (i == 0)
 				i = 1;
-			name[i] = '\0';
-			goto redo;
+
+			if (StrCmp(name, L"\\") != 0
+			    && StrCmp(&name[i], L"..") != 0) {
+				name[i] = '\0';
+				FreePool(dmp);
+				goto redo;
+			}
 		}
 		newname = AllocatePool((StrLen(name) + len + 2)*sizeof(CHAR16));
 		if (!newname)
@@ -470,9 +475,11 @@ simple_file_selector(EFI_HANDLE *im, CHAR16 **title, CHAR16 *name,
 		StrCat(newname, selected);
 		/* remove trailing / */
 		newname[StrLen(newname) - 1] = '\0';
+
 		FreePool(dmp);
 		FreePool(name);
 		name = newname;
+
 		goto redo;
 	}
 	*result = AllocatePool((StrLen(name) + len + 2)*sizeof(CHAR16));

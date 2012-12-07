@@ -17,7 +17,7 @@
 #include <guid.h>
 #include <execute.h>
 
-static CHAR16* keytoolbin = L"\\KeyTool.efi";
+static CHAR16* keytoolbin = L"KeyTool.efi";
 static int transition_to_setup = 0, reboot_to_uefi_menu = 0;
 static EFI_HANDLE im;
 
@@ -70,7 +70,7 @@ enrol_hash(void)
 			L"This means it will Subsequently Boot with no prompting",
 			L"Remember to make sure it is a genuine binary before Enroling its hash",
 			NULL
-		}, L".", NULL, &file_name);
+		}, L"\\", NULL, &file_name);
 
 	if (!file_name)
 		/* user pressed ESC */

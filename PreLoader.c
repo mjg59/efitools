@@ -15,8 +15,8 @@
 
 #include "hashlist.h"
 
-CHAR16 *loader = L"\\loader.efi";
-CHAR16 *hashtool = L"\\HashTool.efi";
+CHAR16 *loader = L"loader.efi";
+CHAR16 *hashtool = L"HashTool.efi";
 
 EFI_STATUS
 efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
@@ -53,7 +53,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	console_alertbox((CHAR16 *[]) {
 			L"Failed to start loader",
 			L"",
-			L"It is probably in \\boot\\efi\\loader.efi",
+			L"It should be called loader.efi (in the current directory)",
 			L"Please enrol its hash and try again",
 			L"",
 			L"I will now execute HashTool for you to do this",

@@ -92,7 +92,9 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		break;
 	}
  out:
-	security_policy_uninstall();
+	status = security_policy_uninstall();
+	if (status != EFI_SUCCESS)
+		console_error(L"Failed to uninstall security policy.  Platform needs rebooting", status);
 
 	return status;
 }

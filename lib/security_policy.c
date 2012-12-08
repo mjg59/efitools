@@ -135,14 +135,16 @@ security2_policy_authentication (
 {
 	EFI_STATUS status;
 
-	status = security_policy_check_mok(FileBuffer, FileSize);
+	/* Chain original security policy */
 
+	status = uefi_call_wrapper(es2fa, 5, This, DevicePath, FileBuffer,
+				   FileSize, BootPolicy);
+
+	/* if OK, don't bother with MOK check */
 	if (status == EFI_SUCCESS)
 		return status;
 
-	/* chain previous policy (UEFI security validation) */
-	status = uefi_call_wrapper(es2fa, 5, This, DevicePath, FileBuffer,
-				   FileSize, BootPolicy);
+	status = security_policy_check_mok(FileBuffer, FileSize);
 
 	return status;
 }
@@ -164,10 +166,19 @@ security_policy_authentication (
 	UINTN FileSize;
 	CHAR16* DevPathStr;
 
+	/* Chain original security policy */
+	status = uefi_call_wrapper(esfas, 3, This, AuthenticationStatus,
+				   DevicePathConst);
+
+	/* if OK avoid checking MOK: It's a bit expensive to
+	 * read the whole file in again (esfas already did this) */
+	if (status == EFI_SUCCESS)
+		goto out;
+
 	status = uefi_call_wrapper(BS->LocateDevicePath, 3,
 				   &SIMPLE_FS_PROTOCOL, &DevPath, &h);
 	if (status != EFI_SUCCESS)
-		goto chain;
+		goto out;
 
 	DevPathStr = DevicePathToStr(DevPath);
 
@@ -175,22 +186,15 @@ security_policy_authentication (
 					    EFI_FILE_MODE_READ);
 	FreePool(DevPathStr);
 	if (status != EFI_SUCCESS)
-		goto chain;
+		goto out;
 
 	status = simple_file_read_all(f, &FileSize, &FileBuffer);
 	simple_file_close(f);
 	if (status != EFI_SUCCESS)
-		goto chain;
+		goto out;
 
 	status = security_policy_check_mok(FileBuffer, FileSize);
 	FreePool(FileBuffer);
-
-	if (status == EFI_SUCCESS)
-		goto out;
-	
- chain:
-	status = uefi_call_wrapper(esfas, 3, This, AuthenticationStatus,
-				   DevicePathConst);
 
  out:
 	FreePool(OrigDevPath);
@@ -236,7 +240,7 @@ security_policy_authentication (
 asm (
 ".type security2_policy_authentication,@function\n"
 "thunk_security2_policy_authentication:\n\t"
-	"mov	32(%rsp), %r10	# ARG5\n\t"
+	"mov	0x28(%rsp), %r10	# ARG5\n\t"
 	"push	%rdi\n\t"
 	"push	%rsi\n\t"
 	"mov	%r10, %rdi\n\t"
@@ -297,30 +301,33 @@ security_policy_install(void)
 	EFI_SECURITY2_PROTOCOL *security2_protocol = NULL;
 	EFI_STATUS status;
 
-	if (es2fa || esfas)
+	if (esfas)
 		/* Already Installed */
 		return EFI_ALREADY_STARTED;
 
-	status = uefi_call_wrapper(BS->LocateProtocol, 3,
-				   &SECURITY2_PROTOCOL_GUID, NULL,
-				   &security2_protocol);
+	/* Don't bother with status here.  The call is allowed
+	 * to fail, since SECURITY2 was introduced in PI 1.2.1
+	 * If it fails, use security2_protocol == NULL as indicator */
+	uefi_call_wrapper(BS->LocateProtocol, 3,
+			  &SECURITY2_PROTOCOL_GUID, NULL,
+			  &security2_protocol);
 
-	if (status == EFI_NOT_FOUND) 
-		status = uefi_call_wrapper(BS->LocateProtocol, 3,
+	status = uefi_call_wrapper(BS->LocateProtocol, 3,
 					   &SECURITY_PROTOCOL_GUID, NULL,
 					   &security_protocol);
 	if (status != EFI_SUCCESS)
+		/* This one is mandatory, so there's a serious problem */
 		return status;
 
 	if (security2_protocol) {
 		es2fa = security2_protocol->FileAuthentication;
 		security2_protocol->FileAuthentication = 
 			thunk_security2_policy_authentication;
-	} else {
-		esfas = security_protocol->FileAuthenticationState;
-		security_protocol->FileAuthenticationState =
-			thunk_security_policy_authentication;
 	}
+
+	esfas = security_protocol->FileAuthenticationState;
+	security_protocol->FileAuthenticationState =
+		thunk_security_policy_authentication;
 
 	return EFI_SUCCESS;
 }
@@ -342,9 +349,12 @@ security_policy_uninstall(void)
 
 		security_protocol->FileAuthenticationState = esfas;
 		esfas = NULL;
+	} else {
+		/* nothing installed */
+		return EFI_NOT_STARTED;
+	}
 
-		return EFI_SUCCESS;
-	} else if (es2fa) {
+	if (es2fa) {
 		EFI_SECURITY2_PROTOCOL *security2_protocol;
 
 		status = uefi_call_wrapper(BS->LocateProtocol, 3,
@@ -358,9 +368,6 @@ security_policy_uninstall(void)
 		es2fa = NULL;
 
 		return EFI_SUCCESS;
-	} else {
-		/* nothing installed */
-		return EFI_NOT_STARTED;
 	}
 }
 

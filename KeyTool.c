@@ -214,11 +214,29 @@ show_key(int key, int offset, void *Data, int DataSize)
 		CHAR16 *filename;
 		EFI_FILE *file;
 		EFI_STATUS status;
+		EFI_HANDLE vol;
+		CHAR16 *volname;
+
+		simple_volume_selector((CHAR16 *[]) {
+				L"Save Key",
+				L"",
+				L"Select a disk Volume to save the key file to",
+				L"The Key file will be saved in the top level directory",
+				L"",
+				L"Note: For USB volumes, some UEFI implementations aren't",
+				L"very good at hotplug, so you may have to boot with the USB",
+				L"Key already plugged in to see the volume",
+				NULL
+			}, &volname, &vol);
+		/* no selection or ESC pressed */
+		if (!volname)
+			return;
+		FreePool(volname);
 
 		filename = AllocatePool(1024);
 
 		SPrint(filename, 0, L"%s-%d.esl", keyinfo[key].name, offset);
-		status = simple_file_open(im, filename, &file, EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_CREATE);
+		status = simple_file_open(vol, filename, &file, EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_CREATE);
 		if (status == EFI_SUCCESS) {
 			status = simple_file_write_all(file, CertList->SignatureListSize, CertList);
 			simple_file_close(file);
@@ -229,7 +247,23 @@ show_key(int key, int offset, void *Data, int DataSize)
 
 			SPrint(str, sizeof(str), L"Failed to write %s", filename);
 			console_error(str, status);
+		} else {
+			CHAR16 str1[80], str2[80], str3[80];
+			
+			SPrint(str1, sizeof(str1), L"Key %s[%d]", keyinfo[key].name, offset);
+			SPrint(str2, sizeof(str2), L"With GUID: %g", &Cert->SignatureOwner);
+			SPrint(str3, sizeof(str3), L"saved to %s", filename);
+
+			console_alertbox((CHAR16 *[]) {
+					L"Successfully Saved",
+					L"",
+					str1,
+					str2,
+					str3,
+					NULL
+				});
 		}
+		FreePool(filename);
 	} else if (option == 2) {
 		title[0] = L"Select authority bundle to remove PK";
 		title[1] = NULL;

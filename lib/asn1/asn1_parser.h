@@ -25,8 +25,6 @@
 
 #include <stdarg.h>
 
-#include <library.h>
-
 #include "asn1.h"
 
 /**

@@ -23,13 +23,6 @@
 #ifndef CHUNK_H_
 #define CHUNK_H_
 
-#include <string.h>
-#include <stdarg.h>
-#include <sys/types.h>
-#ifdef HAVE_ALLOCA_H
-#include <alloca.h>
-#endif
-
 typedef struct chunk_t chunk_t;
 
 /**
@@ -55,107 +48,6 @@ static inline chunk_t chunk_create(u_char *ptr, size_t len)
 	chunk_t chunk = {ptr, len};
 	return chunk;
 }
-
-/**
- * Create a clone of a chunk pointing to "ptr"
- */
-chunk_t chunk_create_clone(u_char *ptr, chunk_t chunk);
-
-/**
- * Calculate length of multiple chunks
- */
-size_t chunk_length(const char *mode, ...);
-
-/**
- * Concatenate chunks into a chunk pointing to "ptr".
- *
- * The mode string specifies the number of chunks, and how to handle each of
- * them with a single character: 'c' for copy (allocate new chunk), 'm' for move
- * (free given chunk) or 's' for sensitive-move (clear given chunk, then free).
- */
-chunk_t chunk_create_cat(u_char *ptr, const char* mode, ...);
-
-/**
- * Split up a chunk into parts, "mode" is a string of "a" (alloc),
- * "c" (copy) and "m" (move). Each letter say for the corresponding chunk if
- * it should get allocated on heap, copied into existing chunk, or the chunk
- * should point into "chunk". The length of each part is an argument before
- * each target chunk. E.g.:
- * chunk_split(chunk, "mcac", 3, &a, 7, &b, 5, &c, d.len, &d);
- */
-void chunk_split(chunk_t chunk, const char *mode, ...);
-
-/**
- * Write the binary contents of a chunk_t to a file
- *
- * @param chunk			contents to write to file
- * @param path			path where file is written to
- * @param label			label specifying file type
- * @param mask			file mode creation mask
- * @param force			overwrite existing file by force
- * @return				TRUE if write operation was successful
- */
-bool chunk_write(chunk_t chunk, char *path, char *label, mode_t mask, bool force);
-
-/**
- * Convert a chunk of data to hex encoding.
- *
- * The resulting string is '\\0' terminated, but the chunk does not include
- * the '\\0'. If buf is supplied, it must hold at least (chunk.len * 2 + 1).
- *
- * @param chunk			data to convert to hex encoding
- * @param buf			buffer to write to, NULL to malloc
- * @param uppercase		TRUE to use uppercase letters
- * @return				chunk of encoded data
- */
-chunk_t chunk_to_hex(chunk_t chunk, char *buf, bool uppercase);
-
-/**
- * Convert a hex encoded in a binary chunk.
- *
- * If buf is supplied, it must hold at least (hex.len / 2) + (hex.len % 2)
- * bytes. It is filled by the right to give correct values for short inputs.
- *
- * @param hex			hex encoded input data
- * @param buf			buffer to write decoded data, NULL to malloc
- * @return				converted data
- */
-chunk_t chunk_from_hex(chunk_t hex, char *buf);
-
-/**
- * Convert a chunk of data to its base64 encoding.
- *
- * The resulting string is '\\0' terminated, but the chunk does not include
- * the '\\0'. If buf is supplied, it must hold at least (chunk.len * 4 / 3 + 1).
- *
- * @param chunk			data to convert
- * @param buf			buffer to write to, NULL to malloc
- * @return				chunk of encoded data
- */
-chunk_t chunk_to_base64(chunk_t chunk, char *buf);
-
-/**
- * Convert a base64 in a binary chunk.
- *
- * If buf is supplied, it must hold at least (base64.len / 4 * 3).
- *
- * @param base64		base64 encoded input data
- * @param buf			buffer to write decoded data, NULL to malloc
- * @return				converted data
- */
-chunk_t chunk_from_base64(chunk_t base64, char *buf);
-
-/**
- * Convert a chunk of data to its base32 encoding.
- *
- * The resulting string is '\\0' terminated, but the chunk does not include
- * the '\\0'. If buf is supplied, it must hold (chunk.len * 8 / 5 + 1) bytes.
- *
- * @param chunk			data to convert
- * @param buf			buffer to write to, NULL to malloc
- * @return				chunk of encoded data
- */
-chunk_t chunk_to_base32(chunk_t chunk, char *buf);
 
 /**
  * Free contents of a chunk
@@ -202,21 +94,6 @@ static inline void chunk_clear(chunk_t *chunk)
  * Clone a chunk on heap
  */
 #define chunk_clone(chunk) ({chunk_t x = (chunk); chunk_create_clone(x.len ? malloc(x.len) : NULL, x);})
-
-/**
- * Clone a chunk on stack
- */
-#define chunk_clonea(chunk) ({chunk_t x = (chunk); chunk_create_clone(x.len ? alloca(x.len) : NULL, x);})
-
-/**
- * Concatenate chunks into a chunk on heap
- */
-#define chunk_cat(mode, ...) chunk_create_cat(malloc(chunk_length(mode, __VA_ARGS__)), mode, __VA_ARGS__)
-
-/**
- * Concatenate chunks into a chunk on stack
- */
-#define chunk_cata(mode, ...) chunk_create_cat(alloca(chunk_length(mode, __VA_ARGS__)), mode, __VA_ARGS__)
 
 /**
  * Skip n bytes in chunk (forward pointer, shorten length)
@@ -272,14 +149,6 @@ static inline bool chunk_equals_ptr(chunk_t *a, chunk_t *b)
 }
 
 /**
- * Increment a chunk, as it would reprensent a network order integer.
- *
- * @param chunk			chunk to increment
- * @return				TRUE if an overflow occurred
- */
-bool chunk_increment(chunk_t chunk);
-
-/**
  * Check if a chunk has printable characters only.
  *
  * If sane is given, chunk is cloned into sane and all non printable characters
@@ -291,16 +160,5 @@ bool chunk_increment(chunk_t chunk);
  * @return				TRUE if all characters in chunk are printable
  */
 bool chunk_printable(chunk_t chunk, chunk_t *sane, char replace);
-
-/**
- * Computes a 32 bit hash of the given chunk.
- * Note: This hash is only intended for hash tables not for cryptographic purposes.
- */
-u_int32_t chunk_hash(chunk_t chunk);
-
-/**
- * Incremental version of chunk_hash. Use this to hash two or more chunks.
- */
-u_int32_t chunk_hash_inc(chunk_t chunk, u_int32_t hash);
 
 #endif

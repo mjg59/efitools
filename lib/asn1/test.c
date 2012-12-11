@@ -1,11 +1,8 @@
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <stdlib.h>
+#include "typedefs.h"
 
-#include "x509.h"
+#include <fcntl.h>
+
+#include <x509.h>
 
 int main(int argc, char *argv[])
 {
@@ -23,9 +20,9 @@ int main(int argc, char *argv[])
 	fstat(fd, &st);
 	buf = malloc(st.st_size);
 	read(fd, buf, st.st_size);
-	x509_to_ascii(buf, st.st_size, X509_OBJ_SUBJECT, out, sizeof(out));
+	x509_to_str(buf, st.st_size, X509_OBJ_SUBJECT, out, sizeof(out));
 	printf("Subject: %s\n", out);
-	x509_to_ascii(buf, st.st_size, X509_OBJ_ISSUER, out, sizeof(out));
+	x509_to_str(buf, st.st_size, X509_OBJ_ISSUER, out, sizeof(out));
 	printf("Issuer: %s\n", out);
 
 	exit(0);

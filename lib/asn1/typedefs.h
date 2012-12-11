@@ -1,11 +1,57 @@
+#ifdef BUILD_EFI
+#include <efi.h>
+#include <efilib.h>
+
+#define malloc(x) AllocatePool(x)
+#define free FreePool
+#define strcmp(x,y) StrCmp(x,y)
+#define memset(m,c,l) ZeroMem(m,l)
+#define memcmp(x,y,z) strncmpa(x,y,z)
+#define isprint(x) (0)
+#define snprintf(s, l, f...) SPrint(s, l, L ## f)
+
+#define STR CHAR16
+#define size_t UINTN
+
+static inline void
+MEMCPY(void *dest, void *src, size_t n)
+{
+	UINTN i;
+	char *d = dest, *s = src;
+
+	for (i = 0; i < n; i++)
+		d[i] = s[i];
+}
+
+#define memcpy MEMCPY
+
+typedef char u_char;
+
+#else
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <errno.h>
+#include <ctype.h>
+#include <string.h>
+#include <limits.h>
+#include <dirent.h>
+#include <time.h>
+
+#define STR char
+
+#define FALSE  0
+#define TRUE 1
+
+#endif
+
 typedef unsigned char bool;
-typedef unsigned char u_char;
 typedef unsigned int u_int;
 
-static const bool FALSE = 0;
-static const bool TRUE = 1;
-
-#define DEBUG(a...)
 #define DBG1(...)
 #define DBG2(...)
 
@@ -41,7 +87,7 @@ static const bool TRUE = 1;
 /**
  * Helper function that compares two strings for equality
  */
-static inline bool streq(const char *x, const char *y)
+static inline bool streq(STR *x, STR *y)
 {
         return strcmp(x, y) == 0;
 }

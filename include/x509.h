@@ -1,3 +1,7 @@
+#ifndef STR
+#define STR CHAR16
+#endif
+
 #define X509_OBJ_TBS_CERTIFICATE				 1
 #define X509_OBJ_VERSION						 3
 #define X509_OBJ_SERIAL_NUMBER					 4
@@ -15,5 +19,5 @@
 #define X509_OBJ_SIGNATURE						25
 
 int
-x509_to_ascii(const char *cert, size_t cert_size, int tag,
-	      char *buf, size_t len);
+x509_to_str(const char *cert, int cert_size, int tag,
+	    STR *buf, int len);

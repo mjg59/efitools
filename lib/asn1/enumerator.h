@@ -62,52 +62,6 @@ enumerator_t* enumerator_create_empty();
 enumerator_t *enumerator_create_single(void *item, void (*cleanup)(void *item));
 
 /**
- * Create an enumerator over files/subdirectories in a directory.
- *
- * This enumerator_t.enumerate() function returns a (to the directory) relative
- * filename (as a char*), an absolute filename (as a char*) and a file status
- * (to a struct stat), which all may be NULL. "." and ".." entries are
- * skipped. Example:
- *
- * @code
-	char *rel, *abs;
-	struct stat st;
-	enumerator_t *e;
-
-	e = enumerator_create_directory("/tmp");
-	if (e)
-	{
-		while (e->enumerate(e, &rel, &abs, &st))
-		{
-			if (S_ISDIR(st.st_mode) && *rel != '.')
-			{
-				printf("%s\n", abs);
-			}
-		}
-		e->destroy(e);
-	}
-   @endcode
- *
- * @param path		path of the directory
- * @return 			the directory enumerator, NULL on failure
- */
-enumerator_t* enumerator_create_directory(const char *path);
-
-/**
- * Create an enumerator over tokens of a string.
- *
- * Tokens are separated by one of the characters in sep and trimmed by the
- * characters in trim.
- *
- * @param string	string to parse
- * @param sep		separator characters
- * @param trim		characters to trim from tokens
- * @return			enumerator over char* tokens
- */
-enumerator_t* enumerator_create_token(const char *string, const char *sep,
-									  const char *trim);
-
-/**
  * Creates an enumerator which enumerates over enumerated enumerators :-).
  *
  * The variable argument list of enumeration values is limit to 5.

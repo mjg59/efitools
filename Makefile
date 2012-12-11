@@ -25,6 +25,9 @@ install: all
 lib/lib.a lib/lib-efi.a: FORCE
 	$(MAKE) -C lib $(notdir $@)
 
+lib/asn1/libasn1.a lib/asn1/libasn1-efi.a: FORCE
+	$(MAKE) -C lib/asn1 $(notdir $@)
+
 .SUFFIXES: .crt
 
 PK.crt KEK.crt DB.crt:
@@ -58,7 +61,7 @@ Loader.so: lib/lib-efi.a
 ReadVars.so: lib/lib-efi.a
 UpdateVars.so: lib/lib-efi.a
 LockDown.so: lib/lib-efi.a
-KeyTool.so: lib/lib-efi.a
+KeyTool.so: lib/lib-efi.a lib/asn1/libasn1-efi.a
 HashTool.so: lib/lib-efi.a
 PreLoader.so: lib/lib-efi.a
 HelloWorld.so: lib/lib-efi.a

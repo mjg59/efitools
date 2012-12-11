@@ -1,6 +1,3 @@
-#include <string.h>
-#include <stdlib.h>
-
 #include "typedefs.h"
 #include "identification.h"
 #include "asn1_parser.h"
@@ -39,8 +36,8 @@ const asn1Object_t x509_certObjects[] = {
 };
 
 int
-x509_to_ascii(const char *cert, size_t cert_size, int tag,
-	      char *buf, size_t len)
+x509_to_str(void *cert, int cert_size, int tag,
+	    STR *buf, int len)
 {
 	asn1_parser_t *parser;
 	chunk_t object, blob;

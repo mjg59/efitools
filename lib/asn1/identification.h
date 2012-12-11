@@ -318,6 +318,6 @@ identification_t * identification_create_from_data(chunk_t data);
  */
 identification_t * identification_create_from_encoding(id_type_t type, chunk_t encoded);
 
-void dntoa(chunk_t dn, char *buf, size_t len);
+void dntoa(chunk_t dn, STR *buf, size_t len);
 
 #endif /** IDENTIFICATION_H_ @}*/

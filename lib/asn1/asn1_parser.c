@@ -15,11 +15,6 @@
  * for more details.
  */
 
-#include <stdio.h>
-#include <string.h>
-#include <time.h>
-#include <stdlib.h>
-
 #include "typedefs.h"
 #include "chunk.h"
 #include "asn1.h"
@@ -121,7 +116,7 @@ METHOD(asn1_parser_t, iterate, bool,
 	if ((obj.flags & ASN1_DEF) && (blob->len == 0 || *start_ptr != obj.type) )
 	{
 		/* field is missing */
-		DEBUG("L%d - %s:", level, obj.name);
+		DBG1("L%d - %s:", level, obj.name);
 		if (obj.type & ASN1_CONSTRUCTED)
 		{
 			this->line++ ;  /* skip context-specific tag */
@@ -148,7 +143,7 @@ METHOD(asn1_parser_t, iterate, bool,
 
 	if (blob->len < 2)
 	{
-		DEBUG("L%d - %s:  ASN.1 object smaller than 2 octets",
+		DBG1("L%d - %s:  ASN.1 object smaller than 2 octets",
 		       level, obj.name);
 		this->success = FALSE;
 		goto end;
@@ -158,7 +153,7 @@ METHOD(asn1_parser_t, iterate, bool,
 
 	if (blob1->len == ASN1_INVALID_LENGTH)
 	{
-		DEBUG("L%d - %s:  length of ASN.1 object invalid or too large",
+		DBG1("L%d - %s:  length of ASN.1 object invalid or too large",
 					level, obj.name);
 		this->success = FALSE;
 	}
@@ -171,7 +166,7 @@ METHOD(asn1_parser_t, iterate, bool,
 
 	if (obj.flags & ASN1_RAW)
 	{
-		DEBUG("L%d - %s:", level, obj.name);
+		DBG1("L%d - %s:", level, obj.name);
 		object->ptr = start_ptr;
 		object->len = (size_t)(blob->ptr - start_ptr);
 		goto end;
@@ -179,14 +174,14 @@ METHOD(asn1_parser_t, iterate, bool,
 
 	if (*start_ptr != obj.type && !(this->implicit && this->line == 0))
 	{
-		DEBUG("L%d - %s: ASN1 tag 0x%02x expected, but is 0x%02x",
+		DBG1("L%d - %s: ASN1 tag 0x%02x expected, but is 0x%02x",
 					level, obj.name, obj.type, *start_ptr);
-		DEBUG("%b", start_ptr, (u_int)(blob->ptr - start_ptr));
+		DBG1("%b", start_ptr, (u_int)(blob->ptr - start_ptr));
 		this->success = FALSE;
 		goto end;
 	}
 
-	DEBUG("L%d - %s:", level, obj.name);
+	DBG1("L%d - %s:", level, obj.name);
 
 	/* In case of "SEQUENCE OF" or "SET OF" start a loop */
 	if (obj.flags & ASN1_LOOP)
@@ -215,17 +210,16 @@ METHOD(asn1_parser_t, iterate, bool,
 		object->len = (size_t)(blob->ptr - start_ptr);
 		if (this->private)
 		{
-			DEBUG("%B", object);
+			DBG1("%B", object);
 		}
 		else
 		{
-			DEBUG("%B", object);
+			DBG1("%B", object);
 		}
 	}
 	else if (obj.flags & ASN1_BODY)
 	{
 		*object = *blob1;
-		asn1_debug_simple_object(*object, obj.type, this->private);
 	}
 
 end:

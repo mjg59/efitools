@@ -15,10 +15,6 @@
  * for more details.
  */
 
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "typedefs.h"
 #include "identification.h"
 
@@ -220,37 +216,10 @@ METHOD(enumerator_t, rdn_part_enumerator_destroy, void,
 	free(this);
 }
 
-METHOD(identification_t, create_part_enumerator, enumerator_t*,
-	private_identification_t *this)
-{
-	switch (this->type)
-	{
-		case ID_DER_ASN1_DN:
-		{
-			rdn_part_enumerator_t *e;
-
-			INIT(e,
-				.inner = create_rdn_enumerator(this->encoded),
-				.public = {
-					.enumerate = (void*)_rdn_part_enumerate,
-					.destroy = _rdn_part_enumerator_destroy,
-				},
-			);
-			return &e->public;
-		}
-		case ID_RFC822_ADDR:
-			/* TODO */
-		case ID_FQDN:
-			/* TODO */
-		default:
-			return enumerator_create_empty();
-	}
-}
-
 /**
  * Print a DN with all its RDN in a buffer to present it to the user
  */
-void dntoa(chunk_t dn, char *buf, size_t len)
+void dntoa(chunk_t dn, STR *buf, size_t len)
 {
 	enumerator_t *e;
 	chunk_t oid_data, data, printable;

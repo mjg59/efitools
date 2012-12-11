@@ -54,7 +54,7 @@ change_setup_mode(int user_mode)
 } 
 
 static void
-enrol_hash(void)
+enroll_hash(void)
 {
 	EFI_STATUS efi_status;
 	CHAR16 *file_name = NULL, *title[6], buf0[256], buf1[256], buf2[256],
@@ -78,7 +78,7 @@ enrol_hash(void)
 
 	sha256_get_pecoff_digest(im, file_name, hash);
 	
-	StrCpy(buf0, L"Enrol this hash into ");
+	StrCpy(buf0, L"Enroll this hash into ");
 	if (setupmode)
 		StrCat(buf0, L"UEFI signature database?");
 	else
@@ -89,12 +89,7 @@ enrol_hash(void)
 	StrCat(buf1, file_name);
 	title[2] = buf1;
 	StrCpy(buf2, L"Hash: ");
-	for (i=0; i<SHA256_DIGEST_SIZE; i++) {
-		CHAR16 buf3[10];
-
-		SPrint(buf3, sizeof(buf3), L"%02x", hash[i]);
-		StrCat(buf2, buf3);
-	}
+	sha256_StrCat_hash(buf2, hash);
 	title[3] = buf2;
 	title[4] = NULL;
 	i = console_yes_no(title);
@@ -110,31 +105,9 @@ enrol_hash(void)
 		var = L"MokList";
 		owner = &MOK_OWNER;
 	}
-		
-	if (find_in_variable_esl(var, *owner, hash, SHA256_DIGEST_SIZE) == EFI_SUCCESS)
-		/* hash already present */
-		return;
 
-	UINT8 sig[sizeof(EFI_SIGNATURE_LIST) + sizeof(EFI_SIGNATURE_DATA) - 1 + SHA256_DIGEST_SIZE];
-	EFI_SIGNATURE_LIST *l = (void *)sig;
-	EFI_SIGNATURE_DATA *d = (void *)sig + sizeof(EFI_SIGNATURE_LIST);
-	SetMem(sig, 0, sizeof(sig));
-	l->SignatureType = EFI_CERT_SHA256_GUID;
-	l->SignatureListSize = sizeof(sig);
-	l->SignatureSize = 16 +32; /* UEFI defined */
-	CopyMem(&d->SignatureData, hash, sizeof(hash));
-
-	if (setupmode)
-		efi_status = SetSecureVariable(var, sig, sizeof(sig), *owner,
-					       EFI_VARIABLE_APPEND_WRITE, 0);
-	else
-		efi_status = uefi_call_wrapper(RT->SetVariable, 5, var, owner,
-					       EFI_VARIABLE_NON_VOLATILE
-					       | EFI_VARIABLE_BOOTSERVICE_ACCESS
-					       | EFI_VARIABLE_APPEND_WRITE,
-					       sizeof(sig), sig);
-
-	if (efi_status != EFI_SUCCESS) {
+	efi_status = variable_enroll_hash(var, *owner, hash);	
+	if (efi_status != EFI_SUCCESS && efi_status != EFI_ALREADY_STARTED) {
 		console_error(L"Failed to add signature to db", efi_status);
 		return;
 	}
@@ -246,7 +219,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		option = console_select(title, options, option);
 
 		if (option == 0) {
-			enrol_hash();
+			enroll_hash();
 		} else if (option == keytool) {
 			EFI_STATUS status;
 

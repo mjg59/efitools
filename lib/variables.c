@@ -27,6 +27,7 @@
 #include <variables.h>
 #include <guid.h>
 #include <console.h>
+#include <sha256.h>
 
 EFI_STATUS
 CreatePkX509SignatureList (
@@ -316,4 +317,37 @@ variable_is_secureboot(void)
 			  &DataSize, &SecureBoot);
 
 	return SecureBoot;
+}
+
+EFI_STATUS
+variable_enroll_hash(CHAR16 *var, EFI_GUID owner,
+		     UINT8 hash[SHA256_DIGEST_SIZE])
+{
+	EFI_STATUS status;
+
+	if (find_in_variable_esl(var, owner, hash, SHA256_DIGEST_SIZE)
+	    == EFI_SUCCESS)
+		/* hash already present */
+		return EFI_ALREADY_STARTED;
+
+	UINT8 sig[sizeof(EFI_SIGNATURE_LIST) + sizeof(EFI_SIGNATURE_DATA) - 1 + SHA256_DIGEST_SIZE];
+	EFI_SIGNATURE_LIST *l = (void *)sig;
+	EFI_SIGNATURE_DATA *d = (void *)sig + sizeof(EFI_SIGNATURE_LIST);
+	SetMem(sig, 0, sizeof(sig));
+	l->SignatureType = EFI_CERT_SHA256_GUID;
+	l->SignatureListSize = sizeof(sig);
+	l->SignatureSize = 16 +32; /* UEFI defined */
+	CopyMem(&d->SignatureData, hash, SHA256_DIGEST_SIZE);
+	d->SignatureOwner = MOK_OWNER;
+
+	if (CompareGuid(&owner, &SIG_DB) == 0)
+		status = SetSecureVariable(var, sig, sizeof(sig), owner,
+					   EFI_VARIABLE_APPEND_WRITE, 0);
+	else
+		status = uefi_call_wrapper(RT->SetVariable, 5, var, &owner,
+					   EFI_VARIABLE_NON_VOLATILE
+					   | EFI_VARIABLE_BOOTSERVICE_ACCESS
+					   | EFI_VARIABLE_APPEND_WRITE,
+					   sizeof(sig), sig);
+	return status;
 }

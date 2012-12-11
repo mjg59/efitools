@@ -19,36 +19,55 @@ static UINT8 SetupMode, SecureBoot;
 
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
 
+enum {
+	KEY_PK = 0,
+	KEY_KEK = 1,
+	KEY_DB = 2,
+	KEY_DBX = 3,
+	KEY_MOK = 4,
+};
+
 static struct {
 	CHAR16 *name;
 	CHAR16 *text;
 	EFI_GUID *guid;
-	int authenticated;
+	int authenticated:1;
+	int hash:1;
 } keyinfo[] = {
-	{ .name = L"PK",
-	  .text = L"The Platform Key (PK)",
-	  .guid = &GV_GUID,
-	  .authenticated = 1,
+	[KEY_PK] = {
+		.name = L"PK",
+		.text = L"The Platform Key (PK)",
+		.guid = &GV_GUID,
+		.authenticated = 1,
+		.hash = 0,
 	},
-	{ .name = L"KEK",
-	  .text = L"The Key Exchange Key Database (KEK)",
-	  .guid = &GV_GUID,
-	  .authenticated = 1,
+	[KEY_KEK] = {
+		.name = L"KEK",
+		.text = L"The Key Exchange Key Database (KEK)",
+		.guid = &GV_GUID,
+		.authenticated = 1,
+		.hash = 0,
 	},
-	{ .name = L"db",
-	  .text = L"The Allowed Signatures Database (db)",
-	  .guid = &SIG_DB,
-	  .authenticated = 1,
+	[KEY_DB] = {
+		.name = L"db",
+		.text = L"The Allowed Signatures Database (db)",
+		.guid = &SIG_DB,
+		.authenticated = 1,
+		.hash = 1,
 	},
-	{ .name = L"dbx",
-	  .text = L"The Forbidden Signatures Database (dbx)",
-	  .guid = &SIG_DB,
-	  .authenticated = 1,
+	[KEY_DBX] = {
+		.name = L"dbx",
+		.text = L"The Forbidden Signatures Database (dbx)",
+		.guid = &SIG_DB,
+		.authenticated = 1,
+		.hash = 1,
 	},
-	{ .name = L"MokList",
-	  .text = L"The Machine Owner Key List (MokList)",
-	  .guid = &MOK_OWNER,
-	  .authenticated = 0,
+	[KEY_MOK] = {
+		.name = L"MokList",
+		.text = L"The Machine Owner Key List (MokList)",
+		.guid = &MOK_OWNER,
+		.authenticated = 0,
+		.hash = 1,
 	}
 };
 static const int keyinfo_size = ARRAY_SIZE(keyinfo);
@@ -137,7 +156,7 @@ show_key(int key, int offset, void *Data, int DataSize)
 	EFI_SIGNATURE_DATA *Cert = NULL;
 	int cert_count = 0, i, Size, option = 0, offs = 0;
 	CHAR16 *title[6], *options[4];
-	CHAR16 str[256], str1[256];
+	CHAR16 str[256], str1[256], str2[256];
 
 	title[0] = keyinfo[key].text;
 
@@ -159,20 +178,26 @@ show_key(int key, int offset, void *Data, int DataSize)
 
 	SPrint(str, sizeof(str), L"Sig[%d] - owner: %g", offset, &Cert->SignatureOwner);
 
-	title[1] = str;
-	title[2] = L"Unknown";
+	int c = 0;
+	title[c++] = str;
+	title[c] = L"Unknown";
 	
 	for (i = 0; i < signatures_size; i++) {
 		if (CompareGuid(signatures[i].guid, &CertList->SignatureType) == 0) {
 			SPrint(str1, sizeof(str1), L"Type: %s", signatures[i].name);
-			title[2] = str1;
+			title[c] = str1;
 			break;
 		}
 	}
-	title[3] = NULL;
+	if (CompareGuid(&CertList->SignatureType, &EFI_CERT_SHA256_GUID) == 0) {
+		StrCpy(str2, L"Hash: ");
+		sha256_StrCat_hash(str2, Cert->SignatureData);
+		title[++c] = str2;
+	}
+	title[++c] = NULL;
 	options[0] = L"Delete";
 	options[1] = L"Save to File";
-	if (key == 0) {
+	if (key == KEY_PK) {
 		options[2] = L"Delete with .auth File";
 		options[3] = NULL;
 	} else {
@@ -286,10 +311,58 @@ add_new_key(int key, UINTN options)
 }
 
 static void
+enroll_hash(int key)
+{
+	EFI_STATUS efi_status;
+	CHAR16 *file_name = NULL, *title[6], buf0[256], buf1[256], buf2[256];
+	UINT8 hash[SHA256_DIGEST_SIZE];
+	int i;
+	EFI_HANDLE h = NULL;
+
+	simple_file_selector(&h, (CHAR16 *[]){
+			L"Select Binary",
+			L"",
+			L"The Selected Binary will have its hash Enrolled",
+			L"This means it will Subsequently Boot with no prompting",
+			L"Remember to make sure it is a genuine binary before Enrolling its hash",
+			NULL
+		}, L"\\", NULL, &file_name);
+
+	if (!file_name)
+		/* user pressed ESC */
+		return;
+
+	sha256_get_pecoff_digest(h, file_name, hash);
+	
+	StrCpy(buf0, L"Enroll hash into ");
+	StrCat(buf0, keyinfo[key].text);
+	title[0] = buf0;
+	title[1] = L"";
+	StrCpy(buf1, L"File: ");
+	StrCat(buf1, file_name);
+	title[2] = buf1;
+	StrCpy(buf2, L"Hash: ");
+	sha256_StrCat_hash(buf2, hash);
+	title[3] = buf2;
+	title[4] = NULL;
+	i = console_yes_no(title);
+	if (i == 0)
+		return;
+
+	efi_status = variable_enroll_hash(keyinfo[key].name,
+					  *keyinfo[key].guid, hash);	
+	if (efi_status != EFI_SUCCESS && efi_status != EFI_ALREADY_STARTED) {
+		console_error(L"Failed to add signature to db", efi_status);
+		return;
+	}
+}
+
+static void
 manipulate_key(int key)
 {
 	CHAR16 *title[5];
 	EFI_STATUS efi_status;
+	int setup_mode = variable_is_setupmode();
 
 	title[0] = L"Manipulating Contents of";
 	title[1] = keyinfo[key].text;
@@ -315,7 +388,7 @@ manipulate_key(int key)
 	if (efi_status == EFI_NOT_FOUND) {
 		int t = 2;
 		title[t++] = L"Variable is Empty";
-		if (key == 0)
+		if (key == KEY_PK)
 			title[t++] = L"WARNING: Setting PK will take the platform out of Setup Mode";
 		title[t++] = NULL;
 	} else if (efi_status != EFI_SUCCESS) {
@@ -332,7 +405,7 @@ manipulate_key(int key)
 		cert_count += (CertList->SignatureListSize - sizeof(EFI_SIGNATURE_LIST)) / CertList->SignatureSize;
 	}
 
-	CHAR16 **guids = (CHAR16 **)AllocatePool((cert_count + 3)*sizeof(void *));
+	CHAR16 **guids = (CHAR16 **)AllocatePool((cert_count + 4)*sizeof(void *));
 	cert_count = 0;
 	for (CertList = (EFI_SIGNATURE_LIST *) Data, Size = DataSize;
 	     Size > 0
@@ -351,13 +424,18 @@ manipulate_key(int key)
 	if (key != 0)
 		guids[replace++] = L"Add New Key";
 	guids[replace] = L"Replace Key(s)";
-	guids[replace + 1] = NULL;
+	int hash = replace;
+	if (keyinfo[key].hash && (!keyinfo[key].authenticated || setup_mode))
+		guids[++hash] = L"Enroll hash of binary";
+	guids[hash + 1] = NULL;
 	int select = console_select(title, guids, 0);
 	FreePool(guids);
 	if (select == replace)
 		add_new_key(key, 0);
 	else if (select == add)
 		add_new_key(key, EFI_VARIABLE_APPEND_WRITE);
+	else if (select == hash)
+		enroll_hash(key);
 	else if (select >= 0)
 		show_key(key, select, Data, DataSize);
 	FreePool(Data);

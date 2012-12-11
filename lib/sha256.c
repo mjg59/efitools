@@ -351,6 +351,19 @@ sha256_get_pecoff_digest_mem(void *buffer, UINTN DataSize,
 }
 
 #ifdef BUILD_EFI
+void
+sha256_StrCat_hash(CHAR16 *str, UINT8 hash[SHA256_DIGEST_SIZE])
+{
+	int i;
+
+	for (i = 0; i < SHA256_DIGEST_SIZE; i++) {
+		CHAR16 buf[10];
+
+		SPrint(buf, sizeof(buf), L"%02x", hash[i]);
+		StrCat(str, buf);
+	}
+}
+
 EFI_STATUS
 sha256_get_pecoff_digest(EFI_HANDLE device, CHAR16 *name, uint8 hash[SHA256_DIGEST_SIZE])
 {

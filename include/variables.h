@@ -1,5 +1,7 @@
 #include <efiauthenticated.h>
 
+#include <sha256.h>		/* for SHA256_DIGEST_SIZE */
+
 EFI_STATUS
 CreatePkX509SignatureList (
   IN	UINT8			    *X509Data,
@@ -34,3 +36,6 @@ int
 variable_is_secureboot(void);
 int
 variable_is_setupmode(void);
+EFI_STATUS
+variable_enroll_hash(CHAR16 *var, EFI_GUID owner,
+		     UINT8 hash[SHA256_DIGEST_SIZE]);

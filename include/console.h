@@ -7,7 +7,7 @@ console_print_box(CHAR16 *str_arr[], int highlight);
 int
 console_yes_no(CHAR16 *str_arr[]);
 int
-console_select(CHAR16 *title[], CHAR16* selectors[], int align);
+console_select(CHAR16 *title[], CHAR16* selectors[], int start);
 void
 console_errorbox(CHAR16 *err);
 void

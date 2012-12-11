@@ -173,6 +173,7 @@ EFI_STATUS
 efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 {
 	UINT64 indications;
+	int option = 0;
 
 	im = image;
 
@@ -193,7 +194,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	for (;;) {
 
 		CHAR16 line2[80], line3[80], **title, *options[6];
-		int option, c = 0, setup_mode, uefi_reboot, reboot,
+		int c = 0, setup_mode, uefi_reboot, reboot,
 			exit_moktool, SetupMode, setup_mode_arg = 0,
 			keytool = 0;
 		EFI_FILE *file;
@@ -242,7 +243,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		options[c++] = L"Exit";
 		options[c++] = NULL;
 
-		option = console_select(title, options, 0);
+		option = console_select(title, options, option);
 
 		if (option == 0) {
 			enrol_hash();

@@ -176,16 +176,16 @@ console_print_box(CHAR16 *str_arr[], int highlight)
 }
 
 int
-console_select(CHAR16 *title[], CHAR16* selectors[], int align)
+console_select(CHAR16 *title[], CHAR16* selectors[], int start)
 {
 	SIMPLE_TEXT_OUTPUT_MODE SavedConsoleMode;
 	SIMPLE_TEXT_OUTPUT_INTERFACE *co = ST->ConOut;
 	EFI_INPUT_KEY k;
-	int selector = 0;
+	int selector;
 	int selector_lines = count_lines(selectors);
 	int selector_max_cols = 0;
 	int i, offs_col, offs_row, size_cols, size_rows, lines;
-	int selector_offset = 0;
+	int selector_offset;
 	UINTN cols, rows;
 
 	uefi_call_wrapper(co->QueryMode, 4, co, co->Mode->Mode, &cols, &rows);
@@ -196,6 +196,11 @@ console_select(CHAR16 *title[], CHAR16* selectors[], int align)
 		if (len > selector_max_cols)
 			selector_max_cols = len;
 	}
+
+	if (start < 0)
+		start = 0;
+	if (start >= selector_lines)
+		start = selector_lines - 1;
 
 	offs_col = - selector_max_cols - 4;
 	size_cols = selector_max_cols + 4;
@@ -209,6 +214,14 @@ console_select(CHAR16 *title[], CHAR16* selectors[], int align)
 		offs_row = - selector_lines - 4;
 		size_rows = selector_lines + 2;
 		lines = selector_lines;
+	}
+
+	if (start > lines) {
+		selector = lines;
+		selector_offset = start - lines;
+	} else {
+		selector = start;
+		selector_offset = 0;
 	}
 
 	CopyMem(&SavedConsoleMode, co->Mode, sizeof(SavedConsoleMode));

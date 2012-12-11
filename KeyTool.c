@@ -135,7 +135,7 @@ show_key(int key, int offset, void *Data, int DataSize)
 {
 	EFI_SIGNATURE_LIST *CertList;
 	EFI_SIGNATURE_DATA *Cert = NULL;
-	int cert_count = 0, i, Size, option, offs = 0;
+	int cert_count = 0, i, Size, option = 0, offs = 0;
 	CHAR16 *title[6], *options[4];
 	CHAR16 str[256], str1[256];
 
@@ -178,7 +178,7 @@ show_key(int key, int offset, void *Data, int DataSize)
 	} else {
 		options[2] = NULL;
 	}
-	option = console_select(title, options, 0);
+	option = console_select(title, options, option);
 	if (option == -1)
 		return;
 	if (option == 0) {
@@ -373,8 +373,10 @@ select_key(void)
 		keys[i] = keyinfo[i].text;
 	keys[i] = NULL;
 
+	i = 0;
+
 	for (;;) {
-		i = console_select( (CHAR16 *[]){ L"Select Key to Manipulate", NULL }, keys, 0);
+		i = console_select( (CHAR16 *[]){ L"Select Key to Manipulate", NULL }, keys, i);
 		if (i == -1)
 			break;
 		manipulate_key(i);
@@ -458,6 +460,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 {
 	EFI_STATUS efi_status;
 	UINTN DataSize = sizeof(SetupMode);
+	int option = 0;
 
 	im = image;
 
@@ -472,7 +475,6 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	for (;;) {
 
 		CHAR16 line2[80], line3[80], **title;
-		int option;
 
 		SetupMode = variable_is_setupmode();
 		SecureBoot = variable_is_secureboot();
@@ -485,7 +487,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		StrCat(line3, SecureBoot ? L"on" : L"off");
 		title =  (CHAR16 *[]){L"KeyTool main menu", L"", line2, line3, NULL };
 
-		option = console_select(title, (CHAR16 *[]){ L"Save Keys", L"Edit Keys", L"Exit", NULL }, 0);
+		option = console_select(title, (CHAR16 *[]){ L"Save Keys", L"Edit Keys", L"Exit", NULL }, option);
 
 		switch (option) {
 		case 0:

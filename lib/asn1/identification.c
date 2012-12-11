@@ -240,7 +240,7 @@ void dntoa(chunk_t dn, STR *buf, size_t len)
 		}
 		else
 		{
-			written = snprintf(buf, len,"%s=", oid_names[oid].name);
+			written = snprintf(buf, len,"%a=", oid_names[oid].name);
 		}
 		if (written < 0 || written >= len)
 		{
@@ -250,7 +250,7 @@ void dntoa(chunk_t dn, STR *buf, size_t len)
 		len -= written;
 
 		chunk_printable(data, &printable, '?');
-		written = snprintf(buf, len, "%.*s", (int)printable.len, printable.ptr);
+		written = snprintf(buf, len, "%.*a", (int)printable.len, printable.ptr);
 		chunk_free(&printable);
 		if (written < 0 || written >= len)
 		{

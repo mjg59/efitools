@@ -12,7 +12,8 @@
 #include <simple_file.h>
 #include <variables.h>
 #include <guid.h>
-#include "efiauthenticated.h"
+#include <x509.h>
+#include <efiauthenticated.h>
 
 static EFI_HANDLE im;
 static UINT8 SetupMode, SecureBoot;
@@ -149,13 +150,42 @@ select_and_apply(CHAR16 **title, CHAR16 *ext, int key, UINTN options)
 	}
 }
 
+static int
+StringSplit(CHAR16 *str, int maxlen, CHAR16 c, CHAR16 **out)
+{
+	int len = StrLen(str);
+	int count = 0;
+
+	if (len < maxlen) {
+		out[0] = str;
+		return 1;
+	}
+	while (len > 0) {
+		int i, found;
+
+		for (i = 0; i < maxlen; i++) {
+			if (str[i] == c)
+				found = i;
+			if (str[i] == '\0') {
+				found = i;
+				break;
+			}
+		}
+		out[count++] = str;
+		str[found] = '\0';
+		str = str + found + 1;
+		len -= found + 1;
+	}
+	return count;
+}
+
 static void
 show_key(int key, int offset, void *Data, int DataSize)
 {
 	EFI_SIGNATURE_LIST *CertList;
 	EFI_SIGNATURE_DATA *Cert = NULL;
 	int cert_count = 0, i, Size, option = 0, offs = 0;
-	CHAR16 *title[6], *options[4];
+	CHAR16 *title[20], *options[4];
 	CHAR16 str[256], str1[256], str2[256];
 
 	title[0] = keyinfo[key].text;
@@ -189,10 +219,35 @@ show_key(int key, int offset, void *Data, int DataSize)
 			break;
 		}
 	}
+	CHAR16 buf[1024], buf1[1024], *tmpbuf[10], *tmpbuf1[10];
 	if (CompareGuid(&CertList->SignatureType, &EFI_CERT_SHA256_GUID) == 0) {
 		StrCpy(str2, L"Hash: ");
 		sha256_StrCat_hash(str2, Cert->SignatureData);
 		title[++c] = str2;
+	} else if (CompareGuid(&CertList->SignatureType, &X509_GUID) == 0) {
+
+		x509_to_str(Cert->SignatureData,
+			    CertList->SignatureSize,
+			    X509_OBJ_SUBJECT, buf, sizeof(buf));
+
+		title[++c] = L"";
+		title[++c] = L"Subject:";
+
+
+		int sp = StringSplit(buf, 70, ',', tmpbuf);
+
+		for (i = 0; i < sp; i++)
+			title[++c] = tmpbuf[i];
+
+		x509_to_str(Cert->SignatureData,
+			    CertList->SignatureSize,
+			    X509_OBJ_ISSUER, buf1, sizeof(buf1));
+
+		sp = StringSplit(buf1, 70, ',', tmpbuf1);
+	
+		title[++c] = L"Issuer:";
+		for (i = 0; i < sp; i++)
+			title[++c] = tmpbuf1[i];
 	}
 	title[++c] = NULL;
 	options[0] = L"Delete";

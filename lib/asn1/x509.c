@@ -48,6 +48,8 @@ x509_to_str(void *cert, int cert_size, int tag,
 	parser = asn1_parser_create(x509_certObjects, blob);
 	parser->set_top_level(parser, 0);
 
+	snprintf(buf, sizeof(buf), "MISPARSE");
+
 	while (parser->iterate(parser, &objectID, &object)) {
 		if (objectID == tag)
 			dntoa(object, buf, len);

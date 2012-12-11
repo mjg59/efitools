@@ -7,7 +7,7 @@
 #define strcmp(x,y) StrCmp(x,y)
 #define memset(m,c,l) ZeroMem(m,l)
 #define memcmp(x,y,z) strncmpa(x,y,z)
-#define isprint(x) (0)
+#define isprint(x) (1)
 #define snprintf(s, l, f...) SPrint(s, l, L ## f)
 
 #define STR CHAR16
@@ -25,7 +25,7 @@ MEMCPY(void *dest, void *src, size_t n)
 
 #define memcpy MEMCPY
 
-typedef char u_char;
+typedef unsigned char u_char;
 
 #else
 
@@ -52,8 +52,8 @@ typedef char u_char;
 typedef unsigned char bool;
 typedef unsigned int u_int;
 
-#define DBG1(...)
-#define DBG2(...)
+#define DBG1(s...)
+#define DBG2(s...)
 
 /**
  * Method declaration/definition macro, providing private and public interface.

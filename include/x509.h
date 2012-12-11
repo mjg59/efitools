@@ -19,5 +19,5 @@
 #define X509_OBJ_SIGNATURE						25
 
 int
-x509_to_str(const char *cert, int cert_size, int tag,
+x509_to_str(void *cert, int cert_size, int tag,
 	    STR *buf, int len);

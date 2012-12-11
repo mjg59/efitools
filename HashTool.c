@@ -70,7 +70,7 @@ enrol_hash(void)
 			L"This means it will Subsequently Boot with no prompting",
 			L"Remember to make sure it is a genuine binary before Enroling its hash",
 			NULL
-		}, L"\\", NULL, &file_name);
+		}, L"\\", L"", &file_name);
 
 	if (!file_name)
 		/* user pressed ESC */

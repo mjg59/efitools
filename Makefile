@@ -1,5 +1,5 @@
 EFIFILES = HelloWorld.efi LockDown.efi Loader.efi ReadVars.efi UpdateVars.efi \
-	KeyTool.efi HashTool.efi PreLoader.efi
+	KeyTool.efi HashTool.efi PreLoader.efi test.efi
 BINARIES = cert-to-efi-sig-list sig-list-to-certs sign-efi-sig-list \
 	hash-to-efi-sig-list
 

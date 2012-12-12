@@ -47,21 +47,23 @@
 EFI_STATUS
 generate_path(CHAR16* name, EFI_LOADED_IMAGE *li, EFI_DEVICE_PATH **path, CHAR16 **PathName)
 {
-	EFI_DEVICE_PATH *devpath;
 	unsigned int pathlen;
 	EFI_STATUS efi_status = EFI_SUCCESS;
 	CHAR16 *devpathstr = DevicePathToStr(li->FilePath),
 		*found = NULL;
 	int i;
 
-	devpath = li->FilePath;
-
-	for (i = 0; i < StrLen(devpathstr); i++)
+	for (i = 0; i < StrLen(devpathstr); i++) {
+		if (devpathstr[i] == '/')
+			devpathstr[i] = '\\';
 		if (devpathstr[i] == '\\')
 			found = &devpathstr[i];
+	}
 	if (!found) {
 		pathlen = 0;
 	} else {
+		while (*(found - 1) == '\\')
+			--found;
 		*found = '\0';
 		pathlen = StrLen(devpathstr);
 	}
@@ -78,8 +80,6 @@ generate_path(CHAR16* name, EFI_LOADED_IMAGE *li, EFI_DEVICE_PATH **path, CHAR16
 	}
 
 	StrCpy(*PathName, devpathstr);
-	if ((*PathName)[StrLen(*PathName) - 1] == '/')
-		(*PathName)[StrLen(*PathName) - 1] = '\0';
 
 	if (name[0] != '\\')
 		StrCat(*PathName, L"\\");
@@ -89,6 +89,7 @@ generate_path(CHAR16* name, EFI_LOADED_IMAGE *li, EFI_DEVICE_PATH **path, CHAR16
 
 error:
 	FreePool(devpathstr);
+
 	return efi_status;
 }
 

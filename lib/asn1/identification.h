@@ -274,50 +274,12 @@ struct identification_t {
 };
 
 /**
- * Creates an identification_t object from a string.
+ * creates an ascii representation of a DN
  *
- * The input string may be e.g. one of the following:
- * - ID_IPV4_ADDR:		192.168.0.1
- * - ID_IPV6_ADDR:		2001:0db8:85a3:08d3:1319:8a2e:0370:7345
- * - ID_FQDN:			www.strongswan.org (optionally with a prepended @)
- * - ID_RFC822_ADDR:	alice@wonderland.org
- * - ID_DER_ASN1_DN:	C=CH, O=Linux strongSwan, CN=bob
- *
- * In favour of pluto, domainnames are prepended with an @, since
- * pluto resolves domainnames without an @ to IPv4 addresses. Since
- * we use a separate host_t class for addresses, this doesn't
- * make sense for us.
- *
- * A distinguished name may contain one or more of the following RDNs:
- * ND, UID, DC, CN, S, SN, serialNumber, C, L, ST, O, OU, T, D,
- * N, G, I, dnQualifier, ID, EN, EmployeeNumber, E, Email, emailAddress, UN,
- * unstructuredName, TCGID.
- *
- * This constructor never returns NULL. If it does not find a suitable
- * conversion function, it will copy the string to an ID_KEY_ID.
- *
- * @param string	input string, which will be converted
- * @return			identification_t
+ * @param dn	chunk pointing to DN
+ * @param buf	buffer to have string written to it
+ * @param len	length of buf
  */
-identification_t * identification_create_from_string(char *string);
-
-/**
- * Creates an identification from a chunk of data, guessing its type.
- *
- * @param data		identification data
- * @return			identification_t
- */
-identification_t * identification_create_from_data(chunk_t data);
-
-/**
- * Creates an identification_t object from an encoded chunk.
- *
- * @param type		type of this id, such as ID_IPV4_ADDR
- * @param encoded	encoded bytes, such as from identification_t.get_encoding
- * @return			identification_t
- */
-identification_t * identification_create_from_encoding(id_type_t type, chunk_t encoded);
-
 void dntoa(chunk_t dn, STR *buf, size_t len);
 
 #endif /** IDENTIFICATION_H_ @}*/

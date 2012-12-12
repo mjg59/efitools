@@ -156,67 +156,6 @@ static enumerator_t* create_rdn_enumerator(chunk_t dn)
 }
 
 /**
- * Part enumerator over RDNs
- */
-typedef struct {
-	/* implements enumerator interface */
-	enumerator_t public;
-	/* inner RDN enumerator */
-	enumerator_t *inner;
-} rdn_part_enumerator_t;
-
-METHOD(enumerator_t, rdn_part_enumerate, bool,
-	rdn_part_enumerator_t *this, id_part_t *type, chunk_t *data)
-{
-	int i, known_oid, strtype;
-	chunk_t oid, inner_data;
-	static const struct {
-		int oid;
-		id_part_t type;
-	} oid2part[] = {
-		{OID_COMMON_NAME,		ID_PART_RDN_CN},
-		{OID_SURNAME,			ID_PART_RDN_S},
-		{OID_SERIAL_NUMBER,		ID_PART_RDN_SN},
-		{OID_COUNTRY,			ID_PART_RDN_C},
-		{OID_LOCALITY,			ID_PART_RDN_L},
-		{OID_STATE_OR_PROVINCE,	ID_PART_RDN_ST},
-		{OID_ORGANIZATION,		ID_PART_RDN_O},
-		{OID_ORGANIZATION_UNIT,	ID_PART_RDN_OU},
-		{OID_TITLE,				ID_PART_RDN_T},
-		{OID_DESCRIPTION,		ID_PART_RDN_D},
-		{OID_NAME,				ID_PART_RDN_N},
-		{OID_GIVEN_NAME,		ID_PART_RDN_G},
-		{OID_INITIALS,			ID_PART_RDN_I},
-		{OID_DN_QUALIFIER,		ID_PART_RDN_DNQ},
-		{OID_UNIQUE_IDENTIFIER,	ID_PART_RDN_ID},
-		{OID_EMAIL_ADDRESS,		ID_PART_RDN_E},
-		{OID_EMPLOYEE_NUMBER,	ID_PART_RDN_EN},
-	};
-
-	while (this->inner->enumerate(this->inner, &oid, &strtype, &inner_data))
-	{
-		known_oid = asn1_known_oid(oid);
-		for (i = 0; i < countof(oid2part); i++)
-		{
-			if (oid2part[i].oid == known_oid)
-			{
-				*type = oid2part[i].type;
-				*data = inner_data;
-				return TRUE;
-			}
-		}
-	}
-	return FALSE;
-}
-
-METHOD(enumerator_t, rdn_part_enumerator_destroy, void,
-	rdn_part_enumerator_t *this)
-{
-	this->inner->destroy(this->inner);
-	free(this);
-}
-
-/**
  * Print a DN with all its RDN in a buffer to present it to the user
  */
 void dntoa(chunk_t dn, STR *buf, size_t len)

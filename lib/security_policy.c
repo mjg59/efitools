@@ -366,9 +366,9 @@ security_policy_uninstall(void)
 
 		security2_protocol->FileAuthentication = es2fa;
 		es2fa = NULL;
-
-		return EFI_SUCCESS;
 	}
+
+	return EFI_SUCCESS;
 }
 
 void

@@ -10,7 +10,9 @@
 #define isprint(x) (1)
 #define snprintf(s, l, f...) SPrint(s, l, L ## f)
 
+/* STR is the native string and STRA is how to printf and ASCII string */
 #define STR CHAR16
+#define STRA "a"
 #define size_t UINTN
 
 static inline void
@@ -43,6 +45,7 @@ typedef unsigned char u_char;
 #include <time.h>
 
 #define STR char
+#define STRA "s"
 
 #define FALSE  0
 #define TRUE 1

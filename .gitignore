@@ -15,6 +15,12 @@ DB.h
 hashlist.h
 *.hash
 *~
+*.orig
+*.pvk
+*.p12
+*.der
+*.pk7
+*.cab
 hash-to-efi-sig-list
 cert-to-efi-sig-list
 sig-list-to-certs

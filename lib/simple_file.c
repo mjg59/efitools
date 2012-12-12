@@ -405,6 +405,8 @@ simple_file_selector(EFI_HANDLE *im, CHAR16 **title, CHAR16 *name,
 	*result = NULL;
 	if (!name)
 		name = L"\\";
+	if (!filter)
+		filter = L"";
 	if (!*im) {
 		EFI_HANDLE h;
 		CHAR16 *volname;

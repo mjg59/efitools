@@ -97,7 +97,7 @@ select_and_apply(CHAR16 **title, CHAR16 *ext, int key, UINTN options)
 	EFI_HANDLE h = NULL;
 	int use_setsecurevariable = 0;
 
-	simple_file_selector(&h, title, NULL, ext, &file_name);
+	simple_file_selector(&h, title, L"\\", ext, &file_name);
 	if (file_name == NULL)
 		return;
 

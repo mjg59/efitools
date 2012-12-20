@@ -73,24 +73,23 @@ console_print_box_at(CHAR16 *str_arr[], int highlight, int start_col, int start_
 		start_col = (cols + start_col + 2)/2;
 	if (start_row < 0)
 		start_row = (rows + start_row + 2)/2;
+	if (start_col < 0)
+		start_col = 0;
+	if (start_row < 0)
+		start_row = 0;
 
 	if (start_col > cols || start_row > rows) {
 		Print(L"Starting Position (%d,%d) is off screen\n",
 		      start_col, start_row);
 		return;
 	}
-	if (size_cols + start_col > cols || size_rows + start_row > rows) {
-		Print(L"Box (%d, %d, %d, %d) is too big for screen\n",
-		      start_col, start_row, size_cols + start_col,
-		      size_rows + start_row);
-		return;
-	}
+	if (size_cols + start_col > cols)
+		size_cols = cols - start_col;
+	if (size_rows + start_row > rows)
+		size_rows = rows - start_row;
 	       
-	if (lines > size_rows - 2) {
-		Print(L"Too many lines in string (%d), box is only %d\n",
-		      lines, size_rows - 2);
-		return;
-	}
+	if (lines > size_rows - 2)
+		lines = size_rows - 2;
 
 	Line = AllocatePool((size_cols+1)*sizeof(CHAR16));
 	if (!Line) {

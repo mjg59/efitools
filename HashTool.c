@@ -157,12 +157,19 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	if (indications & EFI_OS_INDICATIONS_BOOT_TO_FW_UI)
 		reboot_to_uefi_menu = 1;
 
+#if 0
+	/*
+	 * Microsoft objects to this code.  What it does is test to see
+	 * if the platform key is removable and offer a menu item to 
+	 * transition to setup mode
+	 */
 	if (!variable_is_setupmode()) {
 		if (change_setup_mode(0) == EFI_SUCCESS) {
 			transition_to_setup = 1;
 			change_setup_mode(1);
 		}
 	}
+#endif
 
 	for (;;) {
 

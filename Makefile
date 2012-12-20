@@ -51,7 +51,7 @@ noPK.esl:
 noPK.auth: noPK.esl PK.crt sign-efi-sig-list
 	./sign-efi-sig-list -c PK.crt -k PK.key PK $< $@
 
-hashlist.h: KeyTool.hash HashTool.hash Loader.hash
+hashlist.h: HashTool.hash KeyTool.hash
 	cat $^ > /tmp/tmp.hash
 	xxd -i /tmp/tmp.hash > $@
 	rm -f /tmp/tmp.hash

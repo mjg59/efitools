@@ -250,18 +250,25 @@ show_key(int key, int offset, void *Data, int DataSize)
 			title[++c] = tmpbuf1[i];
 	}
 	title[++c] = NULL;
-	options[0] = L"Delete";
-	options[1] = L"Save to File";
-	if (key == KEY_PK) {
-		options[2] = L"Delete with .auth File";
-		options[3] = NULL;
-	} else {
-		options[2] = NULL;
+
+	int o = 0;
+	int option_delete = -1, option_delete_w_auth = -1, option_save = -1;
+
+	if (variable_is_setupmode()) {
+		option_delete = o;
+		options[o++] = L"Delete";
 	}
+	option_save = o;
+	options[o++] = L"Save to File";
+	if (key == KEY_PK) {
+		option_delete_w_auth = o;
+		options[o++] = L"Delete with .auth File";
+	}
+	options[o++] = NULL;
 	option = console_select(title, options, option);
 	if (option == -1)
 		return;
-	if (option == 0) {
+	if (option == option_delete) {
 		EFI_STATUS status;
 
 		if (offs == 0) {
@@ -290,7 +297,7 @@ show_key(int key, int offset, void *Data, int DataSize)
 		if (status != EFI_SUCCESS)
 			console_error(L"Failed to delete key", status);
 
-	} else if (option == 1) {
+	} else if (option == option_save) {
 		CHAR16 *filename;
 		EFI_FILE *file;
 		EFI_STATUS status;
@@ -344,7 +351,7 @@ show_key(int key, int offset, void *Data, int DataSize)
 				});
 		}
 		FreePool(filename);
-	} else if (option == 2) {
+	} else if (option == option_delete_w_auth) {
 		title[0] = L"Select authority bundle to remove PK";
 		title[1] = NULL;
 		select_and_apply(title, L".auth", key, 0);

@@ -269,16 +269,14 @@ find_in_esl(UINT8 *Data, UINTN DataSize, UINT8 *key, UINTN keylen)
 {
 	EFI_SIGNATURE_LIST *CertList;
 
-	for (CertList = (EFI_SIGNATURE_LIST *) Data;
-	     DataSize > 0
-	     && DataSize >= CertList->SignatureListSize;
-	     DataSize -= CertList->SignatureListSize,
-	     CertList = (EFI_SIGNATURE_LIST *) ((UINT8 *) CertList + CertList->SignatureListSize)) {
+	certlist_for_each_certentry(CertList, Data, DataSize, DataSize) {
 		if (CertList->SignatureSize != keylen + sizeof(EFI_GUID))
 			continue;
-		EFI_SIGNATURE_DATA *Cert  = (EFI_SIGNATURE_DATA *) ((UINT8 *) CertList + sizeof (EFI_SIGNATURE_LIST) + CertList->SignatureHeaderSize);
-		if (CompareMem (Cert->SignatureData, key, keylen) == 0)
-			return EFI_SUCCESS;
+		EFI_SIGNATURE_DATA *Cert;
+
+		certentry_for_each_cert(Cert, CertList)
+			if (CompareMem (Cert->SignatureData, key, keylen) == 0)
+				return EFI_SUCCESS;
 	}
 	return EFI_NOT_FOUND;
 }

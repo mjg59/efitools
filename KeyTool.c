@@ -190,21 +190,12 @@ show_key(int key, int offset, void *Data, int DataSize)
 
 	title[0] = keyinfo[key].text;
 
-	for (CertList = (EFI_SIGNATURE_LIST *) Data, Size = DataSize;
-	     Size > 0
-		     && Size >= CertList->SignatureListSize;
-	     Size -= CertList->SignatureListSize,
-		     CertList = (EFI_SIGNATURE_LIST *) ((UINT8 *) CertList + CertList->SignatureListSize)) {
-		int count = (CertList->SignatureListSize - sizeof(EFI_SIGNATURE_LIST)) / CertList->SignatureSize;
-
-		Cert  = (EFI_SIGNATURE_DATA *) ((UINT8 *) CertList + sizeof (EFI_SIGNATURE_LIST) + CertList->SignatureHeaderSize);
-		if (offset < cert_count + count) {
-			offs = cert_count - offset;
-			Cert = (EFI_SIGNATURE_DATA *)((void *)Cert + offs*CertList->SignatureSize);
-			break;
-		}
-		cert_count += count;
+	certlist_for_each_certentry(CertList, Data, Size, DataSize) {
+		certentry_for_each_cert(Cert, CertList)
+			if (cert_count++ == offset)
+				goto finished;
 	}
+ finished:
 
 	SPrint(str, sizeof(str), L"Sig[%d] - owner: %g", offset, &Cert->SignatureOwner);
 
@@ -424,7 +415,7 @@ manipulate_key(int key)
 {
 	CHAR16 *title[5];
 	EFI_STATUS efi_status;
-	int setup_mode = variable_is_setupmode();
+	int setup_mode = variable_is_setupmode(), i;
 
 	title[0] = L"Manipulating Contents of";
 	title[1] = keyinfo[key].text;
@@ -460,26 +451,18 @@ manipulate_key(int key)
 
 	EFI_SIGNATURE_LIST *CertList;
 	int cert_count = 0;
-	for (CertList = (EFI_SIGNATURE_LIST *) Data, Size = DataSize;
-	     Size > 0 && Size >= CertList->SignatureListSize;
-	     Size -= CertList->SignatureListSize,
-		     CertList = (EFI_SIGNATURE_LIST *) ((UINT8 *) CertList + CertList->SignatureListSize)) {
-		cert_count += (CertList->SignatureListSize - sizeof(EFI_SIGNATURE_LIST)) / CertList->SignatureSize;
+	certlist_for_each_certentry(CertList, Data, Size, DataSize) {
+		cert_count += (CertList->SignatureListSize - sizeof(EFI_SIGNATURE_LIST) - CertList->SignatureHeaderSize) / CertList->SignatureSize;
 	}
 
 	CHAR16 **guids = (CHAR16 **)AllocatePool((cert_count + 4)*sizeof(void *));
 	cert_count = 0;
-	for (CertList = (EFI_SIGNATURE_LIST *) Data, Size = DataSize;
-	     Size > 0
-		     && Size >= CertList->SignatureListSize;
-	     Size -= CertList->SignatureListSize,
-		     CertList = (EFI_SIGNATURE_LIST *) ((UINT8 *) CertList + CertList->SignatureListSize)) {
-		int count = (CertList->SignatureListSize - sizeof(EFI_SIGNATURE_LIST)) / CertList->SignatureSize;
-		int j;
-		EFI_SIGNATURE_DATA *Cert  = (EFI_SIGNATURE_DATA *) ((UINT8 *) CertList + sizeof (EFI_SIGNATURE_LIST) + CertList->SignatureHeaderSize);
-		for (j = 0; j < count; j++) {
+	certlist_for_each_certentry(CertList, Data, Size, DataSize) {
+		EFI_SIGNATURE_DATA *Cert;
+
+		certentry_for_each_cert(Cert, CertList) {
 			guids[cert_count] = AllocatePool(64*sizeof(CHAR16));
-			SPrint(guids[cert_count++], 64*sizeof(CHAR16), L"%g", &Cert[j].SignatureOwner);
+			SPrint(guids[cert_count++], 64*sizeof(CHAR16), L"%g", &Cert->SignatureOwner);
 		}
 	}
 	int add = cert_count, replace = cert_count;
@@ -491,6 +474,8 @@ manipulate_key(int key)
 		guids[++hash] = L"Enroll hash of binary";
 	guids[hash + 1] = NULL;
 	int select = console_select(title, guids, 0);
+	for (i = 0; i < cert_count; i++)
+		FreePool(guids[i]);
 	FreePool(guids);
 	if (select == replace)
 		add_new_key(key, 0);

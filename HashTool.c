@@ -21,6 +21,7 @@ static CHAR16* keytoolbin = L"KeyTool.efi";
 static int transition_to_setup = 0, reboot_to_uefi_menu = 0;
 static EFI_HANDLE im;
 
+#if 0
 /* some UEFI machines have a buggy implementation
  * see if we can tip the system into Setup Mode */
 static EFI_STATUS
@@ -51,7 +52,8 @@ change_setup_mode(int user_mode)
 		return SetSecureVariable(L"PK", data, 0, GV_GUID, 0, 0);	
 	}
 
-} 
+}
+#endif
 
 static void
 enroll_hash(void)
@@ -174,9 +176,9 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	for (;;) {
 
 		CHAR16 line2[80], line3[80], **title, *options[6];
-		int c = 0, setup_mode, uefi_reboot, reboot,
-			exit_moktool, SetupMode, setup_mode_arg = 0,
-			keytool = 0;
+		int c = 0, setup_mode = -1, uefi_reboot = -1, reboot = -1,
+			exit_moktool = -1, SetupMode, setup_mode_arg = 0,
+			keytool = -1;
 		EFI_FILE *file;
 
 		if (simple_file_open(image, keytoolbin, &file, EFI_FILE_MODE_READ)
@@ -196,10 +198,8 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		if (keytool) {
 			keytool = c;
 			options[c++] = L"Start UEFI Key Tool";
-		} else {
-			keytool = 0;
 		}
-		setup_mode = uefi_reboot = c;
+
 		if (transition_to_setup) {
 			setup_mode = c;
 
@@ -233,8 +233,10 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 			status = execute(image, keytoolbin);
 			if (status != EFI_SUCCESS)
 				console_error(L"Failed to execute KeyTool", status);
+#if 0
 		} else if (option == setup_mode) {
 			change_setup_mode(setup_mode_arg);
+#endif
 		} else if (option == uefi_reboot) {
 			transition_to_uefi_menu();
 		} else if (option == reboot) {

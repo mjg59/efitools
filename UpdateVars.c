@@ -12,35 +12,10 @@
 
 #include <simple_file.h>
 #include <guid.h>
+#include <variables.h>
 #include "efiauthenticated.h"
 
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
-
-EFI_STATUS
-get_variable(CHAR16 *var, UINT8 **data, UINTN *len, EFI_GUID owner)
-{
-	EFI_STATUS efi_status;
-
-	*len = 0;
-
-	efi_status = uefi_call_wrapper(RT->GetVariable, 5, var, &owner, NULL,
-				       len, NULL);
-	if (efi_status != EFI_BUFFER_TOO_SMALL)
-		return efi_status;
-
-	*data = AllocateZeroPool(*len);
-	if (!data)
-		return EFI_OUT_OF_RESOURCES;
-	
-	efi_status = uefi_call_wrapper(RT->GetVariable, 5, var, &owner, NULL,
-				       len, *data);
-
-	if (efi_status != EFI_SUCCESS) {
-		FreePool(*data);
-		*data = NULL;
-	}
-	return efi_status;
-}
 
 EFI_STATUS
 argsplit(EFI_HANDLE image, int *argc, CHAR16*** ARGV)
@@ -88,7 +63,7 @@ EFI_STATUS
 efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 {
 	EFI_STATUS status;
-	int argc, i;
+	int argc, i, esl_mode = 0;
 	CHAR16 **ARGV, *var, *name, *progname, *owner_guid;
 	EFI_FILE *file;
 	void *buf;
@@ -116,6 +91,10 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 			owner_guid = ARGV[2];
 			ARGV += 2;
 			argc -= 2;
+		} else if (StrCmp(ARGV[1], L"-e") == 0) {
+			esl_mode = 1;
+			ARGV += 1;
+			argc -= 1;
 		} else {
 			/* unrecognised option */
 			break;
@@ -123,7 +102,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	}
 
 	if (argc != 3 ) {
-		Print(L"Usage: %s: [-g guid] [-a] var file\n", progname);
+		Print(L"Usage: %s: [-g guid] [-a] [-e] var file\n", progname);
 		return EFI_INVALID_PARAMETER;
 	}
 
@@ -157,10 +136,16 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		return status;
 	}
 
-	status = uefi_call_wrapper(RT->SetVariable, 5, var, owner,
-				   EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_RUNTIME_ACCESS 
-				   | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS | options,
-				   size, buf);
+	if (esl_mode)
+		status = SetSecureVariable(var, buf, size, *owner, options, 0);
+	else
+		status = uefi_call_wrapper(RT->SetVariable, 5, var, owner,
+					   EFI_VARIABLE_NON_VOLATILE
+					   | EFI_VARIABLE_RUNTIME_ACCESS 
+					   | EFI_VARIABLE_BOOTSERVICE_ACCESS
+					   | EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS
+					   | options,
+					   size, buf);
 
 	if (status != EFI_SUCCESS) {
 		Print(L"Failed to update variable %s: %d\n", var, status);

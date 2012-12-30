@@ -28,6 +28,7 @@
 #include <guid.h>
 #include <console.h>
 #include <sha256.h>
+#include <errors.h>
 
 EFI_STATUS
 CreatePkX509SignatureList (
@@ -153,25 +154,30 @@ CreateTimeBasedPayload (
 }
 
 EFI_STATUS
-SetSecureVariable(CHAR16 *var, UINT8 *Data, UINTN len, EFI_GUID owner, UINT32 options, int createtimebased)
+SetSecureVariable(CHAR16 *var, UINT8 *Data, UINTN len, EFI_GUID owner,
+		  UINT32 options, int createtimebased)
 {
 	EFI_SIGNATURE_LIST *Cert;
 	UINTN DataSize;
 	EFI_STATUS efi_status;
+
+	/* Microsoft request: Bugs in some UEFI platforms mean that PK
+	 * can be updated or deleted programmatically, so prevent */
+	if (!variable_is_setupmode() && StrCmp(var, L"PK") == 0)
+		return EFI_SECURITY_VIOLATION;
 
 	if (createtimebased) {
 		efi_status = CreatePkX509SignatureList(Data, len, owner, &Cert);
 		if (efi_status != EFI_SUCCESS) {
 			Print(L"Failed to create %s certificate %d\n", var, efi_status);
 			return efi_status;
-			DataSize = Cert->SignatureListSize;
 		}
+		DataSize = Cert->SignatureListSize;
 	} else {
 		/* we expect an efi signature list rather than creating it */
 		Cert = (EFI_SIGNATURE_LIST *)Data;
 		DataSize = len;
 	}
-	Print(L"Created %s Cert of size %d\n", var, DataSize);
 	efi_status = CreateTimeBasedPayload(&DataSize, (UINT8 **)&Cert);
 	if (efi_status != EFI_SUCCESS) {
 		Print(L"Failed to create time based payload %d\n", efi_status);
@@ -179,8 +185,11 @@ SetSecureVariable(CHAR16 *var, UINT8 *Data, UINTN len, EFI_GUID owner, UINT32 op
 	}
 
 	efi_status = uefi_call_wrapper(RT->SetVariable, 5, var, &owner,
-				       EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_RUNTIME_ACCESS 
-				       | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS | options,
+				       EFI_VARIABLE_NON_VOLATILE
+				       | EFI_VARIABLE_RUNTIME_ACCESS 
+				       | EFI_VARIABLE_BOOTSERVICE_ACCESS
+				       | EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS
+				       | options,
 				       DataSize, Cert);
 
 	return efi_status;

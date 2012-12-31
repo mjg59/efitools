@@ -591,6 +591,7 @@ save_keys(void)
 		title[t_c++] = &buf[b_c];
 		b_c += StrLen(&buf[b_c]) + 1;
 	}
+	title[t_c] = NULL;
 	console_alertbox(title);
 }
 

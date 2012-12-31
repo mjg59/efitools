@@ -54,3 +54,6 @@ variable_is_setupmode(void);
 EFI_STATUS
 variable_enroll_hash(CHAR16 *var, EFI_GUID owner,
 		     UINT8 hash[SHA256_DIGEST_SIZE]);
+EFI_STATUS
+variable_create_esl(void *cert, int cert_len, EFI_GUID *type, EFI_GUID *owner,
+		    void **out, int *outlen);

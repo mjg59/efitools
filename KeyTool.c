@@ -129,9 +129,23 @@ select_and_apply(CHAR16 **title, CHAR16 *ext, int key, UINTN options)
 			return;
 		}
 	} else {
-		/* do something about .cer case */
-		console_errorbox(L"Handling .cer files is unimplemented");
-		return;
+		if (keyinfo[key].authenticated)
+			use_setsecurevariable = 1;
+		else
+			use_setsecurevariable = 0;
+		void *newesl;
+		int newsize;
+
+		status = variable_create_esl(esl, size, &X509_GUID, NULL,
+					     &newesl, &newsize);
+
+		if (status != EFI_SUCCESS) {
+			console_error(L"Failed to create proper ESL", status);
+			return;
+		}
+		FreePool(esl);
+		esl = newesl;
+		size = newsize;
 	}
 	if (use_setsecurevariable) {
 		status = SetSecureVariable(keyinfo[key].name, esl, size,
@@ -142,7 +156,7 @@ select_and_apply(CHAR16 **title, CHAR16 *ext, int key, UINTN options)
 					   EFI_VARIABLE_NON_VOLATILE
 					   | EFI_VARIABLE_BOOTSERVICE_ACCESS
 					   | options,
-				   size, esl);
+					   size, esl);
 	}
 	if (status != EFI_SUCCESS) {
 		console_error(L"Failed to update variable", status);

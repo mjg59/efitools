@@ -31,56 +31,32 @@
 #include <errors.h>
 
 EFI_STATUS
-CreatePkX509SignatureList (
-  IN	UINT8			    *X509Data,
-  IN	UINTN			    X509DataSize,
-  IN	EFI_GUID		    owner,
-  OUT   EFI_SIGNATURE_LIST          **PkCert 
-  )
+variable_create_esl(void *cert, int cert_len, EFI_GUID *type, EFI_GUID *owner,
+		    void **out, int *outlen)
 {
-  EFI_STATUS              Status = EFI_SUCCESS;  
-  EFI_SIGNATURE_DATA      *PkCertData;
+	*outlen = cert_len + sizeof(EFI_SIGNATURE_LIST) + sizeof(EFI_GUID);
 
-  PkCertData = NULL;
+	*out = AllocateZeroPool(*outlen);
+	if (!*out)
+		return EFI_OUT_OF_RESOURCES;
 
-  //
-  // Allocate space for PK certificate list and initialize it.
-  // Create PK database entry with SignatureHeaderSize equals 0.
-  //
-  *PkCert = (EFI_SIGNATURE_LIST*) AllocateZeroPool (
-              sizeof(EFI_SIGNATURE_LIST) + sizeof(EFI_SIGNATURE_DATA) - 1
-              + X509DataSize
-              );
-  if (*PkCert == NULL) {
-    Status = EFI_OUT_OF_RESOURCES;
-    goto ON_EXIT;
-  }
+	EFI_SIGNATURE_LIST *sl = *out;
 
-  (*PkCert)->SignatureListSize   = (UINT32) (sizeof(EFI_SIGNATURE_LIST) 
-                                    + sizeof(EFI_SIGNATURE_DATA) - 1
-                                    + X509DataSize);
-  (*PkCert)->SignatureSize       = (UINT32) (sizeof(EFI_SIGNATURE_DATA) - 1 + X509DataSize);
-  (*PkCert)->SignatureHeaderSize = 0;
-  (*PkCert)->SignatureType = EFI_CERT_X509_GUID;
+	sl->SignatureHeaderSize = 0;
+	sl->SignatureType = *type;
+	sl->SignatureSize = cert_len + sizeof(EFI_GUID);
+	sl->SignatureListSize = *outlen;
 
-  PkCertData                     = (EFI_SIGNATURE_DATA*) ((UINTN)(*PkCert) 
-                                                          + sizeof(EFI_SIGNATURE_LIST)
-                                                          + (*PkCert)->SignatureHeaderSize);
-  PkCertData->SignatureOwner = owner;  
-  //
-  // Fill the PK database with PKpub data from X509 certificate file.
-  //  
-  CopyMem (&(PkCertData->SignatureData[0]), X509Data, X509DataSize);
-  
-ON_EXIT:
-  
-  if (EFI_ERROR(Status) && *PkCert != NULL) {
-    FreePool (*PkCert);
-    *PkCert = NULL;
-  }
-  
-  return Status;
+	EFI_SIGNATURE_DATA *sd = *out + sizeof(EFI_SIGNATURE_LIST);
+
+	if (owner)
+		sd->SignatureOwner = *owner;
+
+	CopyMem(sd->SignatureData, cert, cert_len);
+
+	return EFI_SUCCESS;
 }
+
 
 EFI_STATUS
 CreateTimeBasedPayload (
@@ -167,12 +143,15 @@ SetSecureVariable(CHAR16 *var, UINT8 *Data, UINTN len, EFI_GUID owner,
 		return EFI_SECURITY_VIOLATION;
 
 	if (createtimebased) {
-		efi_status = CreatePkX509SignatureList(Data, len, owner, &Cert);
+		int ds;
+		efi_status = variable_create_esl(Data, len, &X509_GUID, NULL,
+						 (void **)&Cert, &ds);
 		if (efi_status != EFI_SUCCESS) {
 			Print(L"Failed to create %s certificate %d\n", var, efi_status);
 			return efi_status;
 		}
-		DataSize = Cert->SignatureListSize;
+
+		DataSize = ds;
 	} else {
 		/* we expect an efi signature list rather than creating it */
 		Cert = (EFI_SIGNATURE_LIST *)Data;

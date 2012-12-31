@@ -259,7 +259,7 @@ show_key(int key, int offset, void *Data, int DataSize)
 	int o = 0;
 	int option_delete = -1, option_delete_w_auth = -1, option_save = -1;
 
-	if (variable_is_setupmode()) {
+	if (variable_is_setupmode() || key == KEY_MOK) {
 		option_delete = o;
 		options[o++] = L"Delete";
 	}

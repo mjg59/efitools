@@ -22,10 +22,11 @@ static UINT8 SetupMode, SecureBoot;
 
 enum {
 	KEY_PK = 0,
-	KEY_KEK = 1,
-	KEY_DB = 2,
-	KEY_DBX = 3,
-	KEY_MOK = 4,
+	KEY_KEK,
+	KEY_DB,
+	KEY_DBX,
+	KEY_MOK,
+	MAX_KEYS
 };
 
 static struct {
@@ -430,6 +431,92 @@ enroll_hash(int key)
 }
 
 static void
+save_key_internal(int key, EFI_HANDLE vol, CHAR16 *error)
+{
+	CHAR16 *variables[] = { 
+		[KEY_PK] = L"PK",
+		[KEY_KEK] = L"KEK",
+		[KEY_DB] = L"db",
+		[KEY_DBX] = L"dbx",
+		[KEY_MOK] = L"MokList"
+	};
+	EFI_GUID owners[] = { 
+		[KEY_PK] = GV_GUID,
+		[KEY_KEK] = GV_GUID,
+		[KEY_DB] = SIG_DB,
+		[KEY_DBX] = SIG_DB,
+		[KEY_MOK] = MOK_OWNER
+	};
+	EFI_STATUS status;
+	EFI_FILE *file;
+	UINT8 *data;
+	UINTN len;
+	CHAR16 file_name[512];
+
+	StrCpy(error, variables[key]);
+	status = get_variable(variables[key], &data, &len, owners[key]);
+	if (status != EFI_SUCCESS) {
+		if (status == EFI_NOT_FOUND)
+			StrCat(error, L": Variable has no entries");
+		else
+			StrCat(error, L": Failed to get variable");
+		return;
+	}
+	StrCpy(file_name, L"\\");
+	StrCat(file_name, variables[key]);
+	StrCat(file_name, L".esl");
+	status = simple_file_open(vol, file_name, &file,
+				  EFI_FILE_MODE_READ
+				  | EFI_FILE_MODE_WRITE
+				  | EFI_FILE_MODE_CREATE);
+	if (status != EFI_SUCCESS) {
+		StrCat(error, L": Failed to open file for writing: ");
+		StrCat(error, file_name);
+		return;
+	}
+	status = simple_file_write_all(file, len, data);
+	simple_file_close(file);
+	if (status != EFI_SUCCESS) {
+		StrCat(error, L": Failed to write to ");
+		StrCat(error, file_name);
+		return;
+	}
+	StrCat(error, L": Successfully written to ");
+	StrCat(error, file_name);
+}
+
+static void
+save_key(int key)
+{
+	EFI_HANDLE vol;
+	CHAR16 *volname;
+
+	simple_volume_selector((CHAR16 *[]) {
+			L"Save Key",
+			L"",
+			L"Select a disk Volume to save the key file to",
+			L"The key file will be saved in the top level directory",
+			L"",
+			L"Note: For USB volumes, some UEFI implementations aren't",
+			L"very good at hotplug, so you may have to boot with the USB",
+			L"USB device already plugged in to see the volume",
+			NULL
+		}, &volname, &vol);
+	/* no selection or ESC pressed */
+	if (!volname)
+		return;
+	FreePool(volname);
+
+	CHAR16 buf[1024], *title[2];
+
+	save_key_internal(key, vol, buf);
+	title[0] = buf;
+	title[1] = NULL;
+
+	console_alertbox(title);
+}
+
+static void
 manipulate_key(int key)
 {
 	CHAR16 *title[5];
@@ -469,13 +556,14 @@ manipulate_key(int key)
 	}
 
 	EFI_SIGNATURE_LIST *CertList;
-	int cert_count = 0;
+	int cert_count = 0, add = -1, replace = -1, hash = -1, save = -1;
 	certlist_for_each_certentry(CertList, Data, Size, DataSize) {
 		cert_count += (CertList->SignatureListSize - sizeof(EFI_SIGNATURE_LIST) - CertList->SignatureHeaderSize) / CertList->SignatureSize;
 	}
 
-	CHAR16 **guids = (CHAR16 **)AllocatePool((cert_count + 4)*sizeof(void *));
+	CHAR16 **guids = (CHAR16 **)AllocatePool((cert_count + 5)*sizeof(void *));
 	cert_count = 0;
+	int g;
 	certlist_for_each_certentry(CertList, Data, Size, DataSize) {
 		EFI_SIGNATURE_DATA *Cert;
 
@@ -484,14 +572,25 @@ manipulate_key(int key)
 			SPrint(guids[cert_count++], 64*sizeof(CHAR16), L"%g", &Cert->SignatureOwner);
 		}
 	}
-	int add = cert_count, replace = cert_count;
-	if (key != 0)
-		guids[replace++] = L"Add New Key";
-	guids[replace] = L"Replace Key(s)";
-	int hash = replace;
-	if (keyinfo[key].hash && (!keyinfo[key].authenticated || setup_mode))
-		guids[++hash] = L"Enroll hash of binary";
-	guids[hash + 1] = NULL;
+	g = cert_count;
+	if (key != 0) {
+		add = g;
+		guids[g++] = L"Add New Key";
+	}
+	replace = g;
+	guids[g++] = L"Replace Key(s)";
+
+	if (keyinfo[key].hash && (!keyinfo[key].authenticated || setup_mode)) {
+		hash = g;
+		guids[g++] = L"Enroll hash of binary";
+	}
+
+	if (cert_count != 0) {
+		save = g;
+		guids[g++] = L"Save key";
+	}
+
+	guids[g] = NULL;
 	int select = console_select(title, guids, 0);
 	for (i = 0; i < cert_count; i++)
 		FreePool(guids[i]);
@@ -502,6 +601,8 @@ manipulate_key(int key)
 		add_new_key(key, EFI_VARIABLE_APPEND_WRITE);
 	else if (select == hash)
 		enroll_hash(key);
+	else if (select == save)
+		save_key(key);
 	else if (select >= 0)
 		show_key(key, select, Data, DataSize);
 	FreePool(Data);
@@ -541,7 +642,7 @@ save_keys(void)
 			L"",
 			L"Note: For USB volumes, some UEFI implementations aren't",
 			L"very good at hotplug, so you may have to boot with the USB",
-			L"Key already plugged in to see the volume",
+			L"USB device already plugged in to see the volume",
 			NULL
 		}, &volname, &vol);
 	/* no selection or ESC pressed */
@@ -549,51 +650,14 @@ save_keys(void)
 		return;
 	FreePool(volname);
 
-	CHAR16 *title[10], buf[4096], file_name[512];
-	CHAR16 *variables[] = { L"PK", L"KEK", L"db", L"dbx", L"MokList" };
-	EFI_GUID owners[] = { GV_GUID, GV_GUID, SIG_DB, SIG_DB, MOK_OWNER };
+	CHAR16 *title[10], buf[8000];
 	int i, t_c = 0, b_c = 0;
-	UINT8 *data;
-	UINTN len;
-	EFI_STATUS status;
-	EFI_FILE *file;
 
 	title[t_c++] = L"Results of Saving Keys";
 	title[t_c++] = L"";
 
-	for (i = 0; i < ARRAY_SIZE(owners); i++) {
-		StrCpy(&buf[b_c], variables[i]);
-
-		status = get_variable(variables[i], &data, &len, owners[i]);
-		if (status != EFI_SUCCESS) {
-			if (status == EFI_NOT_FOUND)
-				StrCat(&buf[b_c], L": Variable has no entries");
-			else
-				StrCat(&buf[b_c], L": Failed to get variable");
-			goto cont;
-		}
-		StrCpy(file_name, L"\\");
-		StrCat(file_name, variables[i]);
-		StrCat(file_name, L".esl");
-		status = simple_file_open(vol, file_name, &file,
-					  EFI_FILE_MODE_READ
-					  | EFI_FILE_MODE_WRITE
-					  | EFI_FILE_MODE_CREATE);
-		if (status != EFI_SUCCESS) {
-			StrCat(&buf[b_c], L": Failed to open file for writing: ");
-			StrCat(&buf[b_c], file_name);
-			goto cont;
-		}
-		status = simple_file_write_all(file, len, data);
-		simple_file_close(file);
-		if (status != EFI_SUCCESS) {
-			StrCat(&buf[b_c], L": Failed to write to ");
-			StrCat(&buf[b_c], file_name);
-			goto cont;
-		}
-		StrCat(&buf[b_c], L": Successfully written to ");
-		StrCat(&buf[b_c], file_name);
-	cont:
+	for (i = 0; i < MAX_KEYS; i++) {
+		save_key_internal(i, vol, &buf[b_c]);
 		title[t_c++] = &buf[b_c];
 		b_c += StrLen(&buf[b_c]) + 1;
 	}

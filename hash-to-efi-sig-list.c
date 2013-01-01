@@ -65,11 +65,14 @@ main(int argc, char *argv[])
 
 	int hashes = argc - 2;
 	UINT8 hash[hashes][SHA256_DIGEST_SIZE];
-	
+
+	memset(hash, 0, sizeof(hash));
 
 	for (i = 0; i < hashes; i++) {
 		int j;
 		struct stat st;
+		EFI_STATUS status;
+
 		int fdefifile = open(argv[i + 1], O_RDONLY);
 		if (fdefifile == -1) {
 			fprintf(stderr, "failed to open file %s: ", argv[1]);
@@ -80,7 +83,13 @@ main(int argc, char *argv[])
 		efifile = malloc(st.st_size);
 		read(fdefifile, efifile, st.st_size);
 		close(fdefifile);
-		sha256_get_pecoff_digest_mem(efifile, st.st_size, hash[i]);
+		status = sha256_get_pecoff_digest_mem(efifile, st.st_size,
+						      hash[i]);
+		if (status != EFI_SUCCESS) {
+			printf("Failed to get hash of %s: %d\n", argv[i+1],
+			       status);
+			continue;
+		}
 		printf("HASH IS ");
 		for (j = 0; j < SHA256_DIGEST_SIZE; j++) {
 			printf("%02x", hash[i][j]);

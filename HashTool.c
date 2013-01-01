@@ -78,7 +78,13 @@ enroll_hash(void)
 		/* user pressed ESC */
 		return;
 
-	sha256_get_pecoff_digest(im, file_name, hash);
+	efi_status = sha256_get_pecoff_digest(im, file_name, hash);
+	if (efi_status != EFI_SUCCESS) {
+		console_error(L"Hash failed (is efi binary valid?)",
+			      efi_status);
+		return;
+	}
+
 	
 	StrCpy(buf0, L"Enroll this hash into ");
 	if (setupmode)

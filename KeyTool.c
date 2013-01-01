@@ -545,8 +545,8 @@ save_keys(void)
 	FreePool(volname);
 
 	CHAR16 *title[10], buf[4096], file_name[512];
-	CHAR16 *variables[] = { L"PK", L"KEK", L"db", L"dbx" };
-	EFI_GUID owners[] = { GV_GUID, GV_GUID, SIG_DB, SIG_DB };
+	CHAR16 *variables[] = { L"PK", L"KEK", L"db", L"dbx", L"MokList" };
+	EFI_GUID owners[] = { GV_GUID, GV_GUID, SIG_DB, SIG_DB, MOK_OWNER };
 	int i, t_c = 0, b_c = 0;
 	UINT8 *data;
 	UINTN len;
@@ -580,6 +580,7 @@ save_keys(void)
 			goto cont;
 		}
 		status = simple_file_write_all(file, len, data);
+		simple_file_close(file);
 		if (status != EFI_SUCCESS) {
 			StrCat(&buf[b_c], L": Failed to write to ");
 			StrCat(&buf[b_c], file_name);

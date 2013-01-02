@@ -182,9 +182,9 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	for (;;) {
 
 		CHAR16 line2[80], line3[80], **title, *options[6];
-		int c = 0, setup_mode = -1, uefi_reboot = -1, reboot = -1,
-			exit_moktool = -1, SetupMode, setup_mode_arg = 0,
-			keytool = -1;
+		int c = 0, setup_mode = NOSEL, uefi_reboot = NOSEL,
+			reboot = NOSEL,	exit_moktool = NOSEL, SetupMode,
+			setup_mode_arg = 0, keytool = NOSEL;
 		EFI_FILE *file;
 
 		if (simple_file_open(image, keytoolbin, &file, EFI_FILE_MODE_READ)

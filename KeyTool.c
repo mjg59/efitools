@@ -258,7 +258,8 @@ show_key(int key, int offset, void *Data, int DataSize)
 	title[++c] = NULL;
 
 	int o = 0;
-	int option_delete = -1, option_delete_w_auth = -1, option_save = -1;
+	int option_delete = NOSEL, option_delete_w_auth = NOSEL,
+		option_save = NOSEL;
 
 	if (variable_is_setupmode() || key == KEY_MOK) {
 		option_delete = o;
@@ -556,7 +557,8 @@ manipulate_key(int key)
 	}
 
 	EFI_SIGNATURE_LIST *CertList;
-	int cert_count = 0, add = -1, replace = -1, hash = -1, save = -1;
+	int cert_count = 0, add = NOSEL, replace = NOSEL, hash = NOSEL,
+		save = NOSEL;
 	certlist_for_each_certentry(CertList, Data, Size, DataSize) {
 		cert_count += (CertList->SignatureListSize - sizeof(EFI_SIGNATURE_LIST) - CertList->SignatureHeaderSize) / CertList->SignatureSize;
 	}

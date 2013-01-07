@@ -81,7 +81,7 @@ security_policy_check_mok(void *data, UINTN len)
 	if (find_in_variable_esl(L"dbx", SIG_DB, hash, SHA256_DIGEST_SIZE)
 	    == EFI_SUCCESS)
 		/* MOK list cannot override dbx */
-		goto check_tmplist;
+		return EFI_SECURITY_VIOLATION;
 
 	status = get_variable_attr(L"MokList", &VarData, &VarLen, MOK_OWNER,
 				   &attr);

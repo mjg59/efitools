@@ -195,11 +195,47 @@ StringSplit(CHAR16 *str, int maxlen, CHAR16 c, CHAR16 **out)
 }
 
 static void
+delete_key(int key, void *Data, int DataSize, EFI_SIGNATURE_LIST *CertList,
+	   EFI_SIGNATURE_DATA *Cert)
+{
+	EFI_STATUS status;
+	int certs = (CertList->SignatureListSize - sizeof(EFI_SIGNATURE_LIST) - CertList->SignatureHeaderSize) / CertList->SignatureSize;
+
+	if (certs == 1) {
+		/* delete entire sig list + data */
+		DataSize -= CertList->SignatureListSize;
+		if (DataSize > 0)
+			CopyMem(CertList,  (void *) CertList + CertList->SignatureListSize, DataSize - ((void *) CertList - Data));
+	} else {
+		int remain = DataSize - ((void *)Cert - Data) - CertList->SignatureSize;
+		/* only delete single sig */
+		DataSize -= CertList->SignatureSize;
+		CertList->SignatureListSize -= CertList->SignatureSize;
+		if (remain > 0)
+			CopyMem(Cert, (void *)Cert + CertList->SignatureSize, remain);
+	}
+
+	if (keyinfo[key].authenticated)
+		status = SetSecureVariable(keyinfo[key].name, Data,
+					   DataSize,
+					   *keyinfo[key].guid, 0, 0);
+	else
+		status = uefi_call_wrapper(RT->SetVariable, 5,
+					   keyinfo[key].name, keyinfo[key].guid,
+					   EFI_VARIABLE_NON_VOLATILE
+					   | EFI_VARIABLE_BOOTSERVICE_ACCESS,
+					   DataSize, Data);
+
+	if (status != EFI_SUCCESS)
+		console_error(L"Failed to delete key", status);
+}
+
+static void
 show_key(int key, int offset, void *Data, int DataSize)
 {
 	EFI_SIGNATURE_LIST *CertList;
 	EFI_SIGNATURE_DATA *Cert = NULL;
-	int cert_count = 0, i, Size, option = 0, offs = 0;
+	int cert_count = 0, i, Size, option = 0;
 	CHAR16 *title[20], *options[4];
 	CHAR16 str[256], str1[256], str2[256];
 
@@ -276,34 +312,7 @@ show_key(int key, int offset, void *Data, int DataSize)
 	if (option == -1)
 		return;
 	if (option == option_delete) {
-		EFI_STATUS status;
-
-		if (offs == 0) {
-			/* delete entire sig list + data */
-			DataSize -= CertList->SignatureListSize;
-			if (DataSize > 0)
-				CopyMem(CertList,  (void *) CertList + CertList->SignatureListSize, DataSize - ((void *) CertList - Data));
-		} else {
-			/* only delete single sig */
-			DataSize -= CertList->SignatureSize;
-			if (DataSize > 0)
-				CopyMem(Cert, (void *)Cert + CertList->SignatureSize, DataSize - (Data - (void *)Cert));
-		}
-
-		if (keyinfo[key].authenticated)
-			status = SetSecureVariable(keyinfo[key].name, Data,
-						   DataSize,
-						   *keyinfo[key].guid, 0, 0);
-		else
-			status = uefi_call_wrapper(RT->SetVariable, 5,
-					keyinfo[key].name, keyinfo[key].guid,
-					EFI_VARIABLE_NON_VOLATILE
-					| EFI_VARIABLE_BOOTSERVICE_ACCESS,
-					DataSize, Data);
-
-		if (status != EFI_SUCCESS)
-			console_error(L"Failed to delete key", status);
-
+		delete_key(key, Data, DataSize, CertList, Cert);
 	} else if (option == option_save) {
 		CHAR16 *filename;
 		EFI_FILE *file;

@@ -469,7 +469,8 @@ save_key_internal(int key, EFI_HANDLE vol, CHAR16 *error)
 		if (status == EFI_NOT_FOUND)
 			StrCat(error, L": Variable has no entries");
 		else
-			StrCat(error, L": Failed to get variable");
+			SPrint(error, 1024, L"%s: Failed to get variable (Error: %d)",
+			       error, status);
 		return;
 	}
 	StrCpy(file_name, L"\\");
@@ -480,15 +481,15 @@ save_key_internal(int key, EFI_HANDLE vol, CHAR16 *error)
 				  | EFI_FILE_MODE_WRITE
 				  | EFI_FILE_MODE_CREATE);
 	if (status != EFI_SUCCESS) {
-		StrCat(error, L": Failed to open file for writing: ");
-		StrCat(error, file_name);
+		SPrint(error, 1024, L"%s: Failed to open file %s (Error: %d)",
+		       error, file_name, status);
 		return;
 	}
 	status = simple_file_write_all(file, len, data);
 	simple_file_close(file);
 	if (status != EFI_SUCCESS) {
-		StrCat(error, L": Failed to write to ");
-		StrCat(error, file_name);
+		SPrint(error, 1024, L"%s: Failed to write to %s (Error: %d)",
+		       error, file_name, status);
 		return;
 	}
 	StrCat(error, L": Successfully written to ");

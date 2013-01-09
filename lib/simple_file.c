@@ -28,14 +28,14 @@ simple_file_open_by_handle(EFI_HANDLE device, CHAR16 *name, EFI_FILE **file, UIN
 				       &SIMPLE_FS_PROTOCOL, &drive);
 
 	if (efi_status != EFI_SUCCESS) {
-		Print(L"Unable to find simple file protocol\n");
+		Print(L"Unable to find simple file protocol (%d)\n", efi_status);
 		goto error;
 	}
 
 	efi_status = uefi_call_wrapper(drive->OpenVolume, 2, drive, &root);
 
 	if (efi_status != EFI_SUCCESS) {
-		Print(L"Failed to open drive volume\n");
+		Print(L"Failed to open drive volume (%d)\n", efi_status);
 		goto error;
 	}
 

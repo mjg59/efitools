@@ -201,7 +201,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		StrCat(line3, variable_is_secureboot() ? L"on" : L"off");
 		title =  (CHAR16 *[]){L"Hash Tool main menu", L"", line2, line3, NULL };
 		options[c++] = L"Enroll Hash";
-		if (keytool) {
+		if (keytool != NOSEL) {
 			keytool = c;
 			options[c++] = L"Start UEFI Key Tool";
 		}

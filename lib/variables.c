@@ -137,9 +137,10 @@ SetSecureVariable(CHAR16 *var, UINT8 *Data, UINTN len, EFI_GUID owner,
 	UINTN DataSize;
 	EFI_STATUS efi_status;
 
-	/* Microsoft request: Bugs in some UEFI platforms mean that PK
-	 * can be updated or deleted programmatically, so prevent */
-	if (!variable_is_setupmode() && StrCmp(var, L"PK") == 0)
+	/* Microsoft request: Bugs in some UEFI platforms mean that PK or any
+	 * other secure variable can be updated or deleted programmatically,
+	 * so prevent */
+	if (!variable_is_setupmode())
 		return EFI_SECURITY_VIOLATION;
 
 	if (createtimebased) {

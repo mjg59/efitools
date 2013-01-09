@@ -373,3 +373,14 @@ console_error(CHAR16 *err, EFI_STATUS status)
 
 	console_alertbox(err_arr);
 }
+
+int
+console_reset(void)
+{
+	SIMPLE_TEXT_OUTPUT_INTERFACE *co = ST->ConOut;
+
+	uefi_call_wrapper(co->Reset, 2, co, TRUE);
+	/* set mode 0 - required to be 80x25 */
+	uefi_call_wrapper(co->SetMode, 2, co, 0);
+	uefi_call_wrapper(co->ClearScreen, 1, co);
+}

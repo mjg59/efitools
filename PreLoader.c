@@ -25,6 +25,8 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 
 	InitializeLib(image, systab);
 
+	console_reset();
+
 	status = security_policy_install();
 	if (status != EFI_SUCCESS) {
 		console_error(L"Failed to install override security policy",

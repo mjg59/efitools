@@ -133,7 +133,7 @@ security2_policy_authentication (
 	BOOLEAN	BootPolicy
 				 )
 {
-	EFI_STATUS status;
+	EFI_STATUS status, auth;
 
 	/* Chain original security policy */
 
@@ -144,9 +144,15 @@ security2_policy_authentication (
 	if (status == EFI_SUCCESS)
 		return status;
 
-	status = security_policy_check_mok(FileBuffer, FileSize);
+	auth = security_policy_check_mok(FileBuffer, FileSize);
 
-	return status;
+	if (auth == EFI_SECURITY_VIOLATION || auth == EFI_ACCESS_DENIED)
+		/* return previous status, which is the correct one
+		 * for the platform: may be either EFI_ACCESS_DENIED
+		 * or EFI_SECURITY_VIOLATION */
+		return status;
+
+	return auth;
 }
 
 static __attribute__((used)) EFI_STATUS
@@ -156,7 +162,7 @@ security_policy_authentication (
 	const EFI_DEVICE_PATH_PROTOCOL *DevicePathConst
 	)
 {
-	EFI_STATUS status;
+	EFI_STATUS status, fail_status;
 	EFI_DEVICE_PATH *DevPath 
 		= DuplicateDevicePath((EFI_DEVICE_PATH *)DevicePathConst),
 		*OrigDevPath = DevPath;
@@ -174,6 +180,10 @@ security_policy_authentication (
 	 * read the whole file in again (esfas already did this) */
 	if (status == EFI_SUCCESS)
 		goto out;
+
+	/* capture failure status: may be either EFI_ACCESS_DENIED or
+	 * EFI_SECURITY_VIOLATION */
+	fail_status = status;
 
 	status = uefi_call_wrapper(BS->LocateDevicePath, 3,
 				   &SIMPLE_FS_PROTOCOL, &DevPath, &h);
@@ -196,6 +206,9 @@ security_policy_authentication (
 	status = security_policy_check_mok(FileBuffer, FileSize);
 	FreePool(FileBuffer);
 
+	if (status == EFI_ACCESS_DENIED || status == EFI_SECURITY_VIOLATION)
+		/* return what the platform originally said */
+		status = fail_status;
  out:
 	FreePool(OrigDevPath);
 	return status;

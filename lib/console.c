@@ -374,7 +374,7 @@ console_error(CHAR16 *err, EFI_STATUS status)
 	console_alertbox(err_arr);
 }
 
-int
+void
 console_reset(void)
 {
 	SIMPLE_TEXT_OUTPUT_INTERFACE *co = ST->ConOut;

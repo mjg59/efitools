@@ -14,6 +14,6 @@ void
 console_error(CHAR16 *err, EFI_STATUS);
 void
 console_alertbox(CHAR16 **title);
-int
+void
 console_reset(void);
 #define NOSEL 0x7fffffff

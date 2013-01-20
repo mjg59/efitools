@@ -264,6 +264,9 @@ console_select(CHAR16 *title[], CHAR16* selectors[], int start)
 	uefi_call_wrapper(co->SetCursorPosition, 3, co, SavedConsoleMode.CursorColumn, SavedConsoleMode.CursorRow);
 	uefi_call_wrapper(co->SetAttribute, 2, co, SavedConsoleMode.Attribute);
 
+	if (selector < 0)
+		/* ESC pressed */
+		return selector;
 	return selector + selector_offset;
 }
 

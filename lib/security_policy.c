@@ -14,6 +14,7 @@
 #include <variables.h>
 #include <simple_file.h>
 #include <errors.h>
+#include <configtable.h>
 
 #include <security_policy.h>
 
@@ -22,10 +23,9 @@
  */
 struct _EFI_SECURITY2_PROTOCOL;
 struct _EFI_SECURITY_PROTOCOL;
-struct _EFI_DEVICE_PATH_PROTOCOL;
 typedef struct _EFI_SECURITY2_PROTOCOL EFI_SECURITY2_PROTOCOL;
 typedef struct _EFI_SECURITY_PROTOCOL EFI_SECURITY_PROTOCOL;
-typedef struct _EFI_DEVICE_PATH_PROTOCOL EFI_DEVICE_PATH_PROTOCOL;
+typedef EFI_DEVICE_PATH EFI_DEVICE_PATH_PROTOCOL;
 
 typedef EFI_STATUS (EFIAPI *EFI_SECURITY_FILE_AUTHENTICATION_STATE) (
 			const EFI_SECURITY_PROTOCOL *This,
@@ -152,6 +152,9 @@ security2_policy_authentication (
 		 * or EFI_SECURITY_VIOLATION */
 		return status;
 
+	if (configtable_image_is_forbidden(DevicePath))
+		return status;
+
 	return auth;
 }
 
@@ -209,6 +212,10 @@ security_policy_authentication (
 	if (status == EFI_ACCESS_DENIED || status == EFI_SECURITY_VIOLATION)
 		/* return what the platform originally said */
 		status = fail_status;
+
+	if (configtable_image_is_forbidden(DevicePathConst))
+		status = fail_status;
+
  out:
 	FreePool(OrigDevPath);
 	return status;

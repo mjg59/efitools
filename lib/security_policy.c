@@ -212,8 +212,7 @@ security_policy_authentication (
 	if (status == EFI_ACCESS_DENIED || status == EFI_SECURITY_VIOLATION)
 		/* return what the platform originally said */
 		status = fail_status;
-
-	if (configtable_image_is_forbidden(DevicePathConst))
+	else if (configtable_image_is_forbidden(DevicePathConst))
 		status = fail_status;
 
  out:

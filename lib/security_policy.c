@@ -14,7 +14,6 @@
 #include <variables.h>
 #include <simple_file.h>
 #include <errors.h>
-#include <configtable.h>
 
 #include <security_policy.h>
 
@@ -152,9 +151,6 @@ security2_policy_authentication (
 		 * or EFI_SECURITY_VIOLATION */
 		return status;
 
-	if (configtable_image_is_forbidden(DevicePath))
-		return status;
-
 	return auth;
 }
 
@@ -212,9 +208,6 @@ security_policy_authentication (
 	if (status == EFI_ACCESS_DENIED || status == EFI_SECURITY_VIOLATION)
 		/* return what the platform originally said */
 		status = fail_status;
-	else if (configtable_image_is_forbidden(DevicePathConst))
-		status = fail_status;
-
  out:
 	FreePool(OrigDevPath);
 	return status;

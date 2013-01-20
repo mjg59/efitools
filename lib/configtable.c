@@ -43,13 +43,11 @@ configtable_find_image(const EFI_DEVICE_PATH *DevicePath)
 	int entries = t->NumberOfImages;
 	EFI_IMAGE_EXECUTION_INFO *e = t->InformationInfo;
 
-	Print(L"FOUND %d images\n", entries);
-
 	int i;
 	for (i = 0; i < entries; i++) {
+#ifdef DEBUG_CONFIG
 		Print(L"InfoSize = %d  Action = %d\n", e->InfoSize, e->Action);
 
-#ifdef DEBUG_CONFIG
 		/* print what we have for debugging */
 		UINT8 *d = (UINT8 *)e; // + sizeof(UINT32)*2;
 		Print(L"Data: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
@@ -78,7 +76,9 @@ configtable_find_image(const EFI_DEVICE_PATH *DevicePath)
 		 * look for either a UC16 NULL or ASCII as UC16 */
 		if (name[0] == '\0' || (e->Data[1] == 0 && e->Data[3] == 0)) {
 			skip = StrSize(name);
+#ifdef DEBUG_CONFIG
 			Print(L"FOUND NAME %s (%d)\n", name, skip);
+#endif
 		}
 		EFI_DEVICE_PATH *dp = (EFI_DEVICE_PATH *)(e->Data + skip), *dpn = dp;
 		if (dp->Type == 0 || dp->Type > 6 || dp->SubType == 0
@@ -134,7 +134,9 @@ configtable_image_is_forbidden(const EFI_DEVICE_PATH *DevicePath)
 	if (e && (e->Action == EFI_IMAGE_EXECUTION_AUTH_SIG_FOUND
 		  || e->Action == EFI_IMAGE_EXECUTION_AUTH_SIG_FAILED)) {
 		/* this means the images signing key is in dbx */
+#ifdef DEBUG_CONFIG
 		Print(L"SIGNATURE IS IN DBX, FORBIDDING EXECUTION\n");
+#endif
 		return 1;
 	}
 

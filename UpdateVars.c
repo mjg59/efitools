@@ -20,7 +20,7 @@
 EFI_STATUS
 argsplit(EFI_HANDLE image, int *argc, CHAR16*** ARGV)
 {
-	int i, count = 0;
+	int i, count = 1;
 	EFI_STATUS status;
 	EFI_LOADED_IMAGE *info;
 	CHAR16 *start;
@@ -35,26 +35,29 @@ argsplit(EFI_HANDLE image, int *argc, CHAR16*** ARGV)
 
 	for (i = 0; i < info->LoadOptionsSize; i += 2) {
 		CHAR16 *c = (CHAR16 *)(info->LoadOptions + i);
-		if (*c == L' ') {
+		if (*c == L' ' && *(c+1) != '\0') {
 			(*argc)++;
 		}
 	}
 
-	*ARGV = AllocatePool(*argc * sizeof(char *));
+	(*argc)++;		/* we counted spaces, so add one for initial */
+
+	*ARGV = AllocatePool(*argc * sizeof(*ARGV));
 	if (!*ARGV) {
 		return EFI_OUT_OF_RESOURCES;
 	}
-	start = (CHAR16 *)info->LoadOptions;
 	(*ARGV)[0] = (CHAR16 *)info->LoadOptions;
 	for (i = 0; i < info->LoadOptionsSize; i += 2) {
 		CHAR16 *c = (CHAR16 *)(info->LoadOptions + i);
 		if (*c == L' ') {
 			*c = L'\0';
-			(*ARGV)[count++] = start;
+			if (*(c + 1) == '\0')
+				/* strip trailing space */
+				break;
 			start = c + 1;
+			(*ARGV)[count++] = start;
 		}
 	}
-
 
 	return EFI_SUCCESS;
 }
@@ -111,7 +114,6 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		Print(L"Usage: %s: [-g guid] [-a] [-e] [-b] var file\n", progname);
 		return EFI_INVALID_PARAMETER;
 	}
-
 
 	var = ARGV[1];
 	name = ARGV[2];

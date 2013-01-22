@@ -69,8 +69,9 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	void *buf;
 	UINTN size, options = 0;
 	EFI_GUID *owner;
-	CHAR16 *variables[] = { L"PK", L"KEK", L"db", L"dbx" };
-	EFI_GUID owners[] = { GV_GUID, GV_GUID, SIG_DB, SIG_DB };
+	CHAR16 *variables[] = { L"PK", L"KEK", L"db", L"dbx", L"MokList" };
+	EFI_GUID *owners[] = { &GV_GUID, &GV_GUID, &SIG_DB, &SIG_DB,
+			       &MOK_OWNER };
 
 	InitializeLib(image, systab);
 
@@ -84,7 +85,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	progname = ARGV[0];
 	while (argc > 1 && ARGV[1][0] == L'-') {
 		if (StrCmp(ARGV[1], L"-a") == 0) {
-			options = EFI_VARIABLE_APPEND_WRITE;
+			options |= EFI_VARIABLE_APPEND_WRITE;
 			ARGV += 1;
 			argc -= 1;
 		} else if (StrCmp(ARGV[1], L"-g") == 0) {
@@ -112,7 +113,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 
 	for(i = 0; i < ARRAY_SIZE(variables); i++) {
 		if (StrCmp(var, variables[i]) == 0) {
-			owner = &owners[i];
+			owner = owners[i];
 			break;
 		}
 	}
@@ -123,6 +124,22 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		Print(L"\n");
 		return EFI_INVALID_PARAMETER;
 	}
+
+	if (owner == &MOK_OWNER) {
+		if (!esl_mode) {
+			Print(L"MoK variables can only be updated in ESL mode\n");
+			return EFI_INVALID_PARAMETER;
+		}
+		/* hack: esl goes directly into MoK variables, so we now
+		 * pretend we have a direct .auth update */
+		esl_mode = 0;
+	} else {
+		/* non MoK variables have runtime access and time based
+		 * authentication, MoK ones don't */
+		options |= EFI_VARIABLE_RUNTIME_ACCESS
+			| EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS;
+	}
+		
 
 	status = simple_file_open(image, name, &file, EFI_FILE_MODE_READ);
 	if (status != EFI_SUCCESS) {
@@ -141,9 +158,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	else
 		status = uefi_call_wrapper(RT->SetVariable, 5, var, owner,
 					   EFI_VARIABLE_NON_VOLATILE
-					   | EFI_VARIABLE_RUNTIME_ACCESS 
 					   | EFI_VARIABLE_BOOTSERVICE_ACCESS
-					   | EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS
 					   | options,
 					   size, buf);
 

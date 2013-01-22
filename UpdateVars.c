@@ -63,7 +63,7 @@ EFI_STATUS
 efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 {
 	EFI_STATUS status;
-	int argc, i, esl_mode = 0;
+	int argc, i, esl_mode = 0, hash_mode = 0;
 	CHAR16 **ARGV, *var, *name, *progname, *owner_guid;
 	EFI_FILE *file;
 	void *buf;
@@ -96,6 +96,11 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 			esl_mode = 1;
 			ARGV += 1;
 			argc -= 1;
+		} else if (StrCmp(ARGV[1], L"-b") == 0) {
+			esl_mode = 1;
+			hash_mode = 1;
+			ARGV += 1;
+			argc -= 1;
 		} else {
 			/* unrecognised option */
 			break;
@@ -103,7 +108,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	}
 
 	if (argc != 3 ) {
-		Print(L"Usage: %s: [-g guid] [-a] [-e] var file\n", progname);
+		Print(L"Usage: %s: [-g guid] [-a] [-e] [-b] var file\n", progname);
 		return EFI_INVALID_PARAMETER;
 	}
 
@@ -152,15 +157,26 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		Print(L"Failed to read file %s\n", name);
 		return status;
 	}
+	simple_file_close(file);
 
-	if (esl_mode)
+	if (hash_mode) {
+		UINT8 hash[SHA256_DIGEST_SIZE];
+
+		status = sha256_get_pecoff_digest_mem(buf, size, hash);
+		if (status != EFI_SUCCESS) {
+			Print(L"Failed to get hash of %s\n", name);
+			return status;
+		}
+		status = variable_enroll_hash(var, *owner, hash);
+	} else if (esl_mode) {
 		status = SetSecureVariable(var, buf, size, *owner, options, 0);
-	else
+	} else {
 		status = uefi_call_wrapper(RT->SetVariable, 5, var, owner,
 					   EFI_VARIABLE_NON_VOLATILE
 					   | EFI_VARIABLE_BOOTSERVICE_ACCESS
 					   | options,
 					   size, buf);
+	}
 
 	if (status != EFI_SUCCESS) {
 		Print(L"Failed to update variable %s: %d\n", var, status);

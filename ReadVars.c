@@ -71,8 +71,8 @@ EFI_STATUS
 efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 {
 	EFI_STATUS efi_status;
-	CHAR16 *variables[] = { L"PK", L"KEK", L"db", L"dbx" };
-	EFI_GUID owners[] = { GV_GUID, GV_GUID, SIG_DB, SIG_DB };
+	CHAR16 *variables[] = { L"PK", L"KEK", L"db", L"dbx", L"MokList" };
+	EFI_GUID owners[] = { GV_GUID, GV_GUID, SIG_DB, SIG_DB, MOK_OWNER };
 	UINT8 *data;
 	UINTN len;
 	int i;

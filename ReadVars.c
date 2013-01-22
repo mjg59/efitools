@@ -10,26 +10,29 @@
 
 #include <simple_file.h>
 #include <guid.h>
-#include "efiauthenticated.h"
 #include <variables.h>
+#include <shell.h>
+#include <x509.h>
+#include <sha256.h>
+#include "efiauthenticated.h"
 
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
 
 void
-parse_db(UINT8 *data, UINTN len, EFI_HANDLE image, CHAR16 *name)
+parse_db(UINT8 *data, UINTN len, EFI_HANDLE image, CHAR16 *name, int save_file)
 {
 	EFI_SIGNATURE_LIST  *CertList = (EFI_SIGNATURE_LIST *)data;
 	EFI_SIGNATURE_DATA  *Cert;
-	UINTN Index, count = 0, DataSize = len, CertCount;
+	UINTN count = 0, DataSize = len;
 	EFI_FILE *file;
-	CHAR16 *buf = AllocatePool(StrLen(name)*2 + 4 + 2 + 4 + 8 +100);
+	CHAR16 *buf = AllocatePool(StrSize(name) + 4 + 2 + 4 + 8 +100);
 	CHAR16 *ext;
 	EFI_STATUS status;
+	int size;
 
-	while ((DataSize > 0) && (DataSize >= CertList->SignatureListSize)) {
+	certlist_for_each_certentry(CertList, data, size, DataSize) {
+		int Index = 0;
 		count++;
-		CertCount = (CertList->SignatureListSize - CertList->SignatureHeaderSize) / CertList->SignatureSize;
-		Cert      = (EFI_SIGNATURE_DATA *) ((UINT8 *) CertList + sizeof (EFI_SIGNATURE_LIST) + CertList->SignatureHeaderSize);
 
 		if (CompareGuid(&CertList->SignatureType, &X509_GUID) == 0) {
 			ext = L"X509";
@@ -37,32 +40,59 @@ parse_db(UINT8 *data, UINTN len, EFI_HANDLE image, CHAR16 *name)
 			ext = L"RSA2048";
 		} else if (CompareGuid(&CertList->SignatureType, &PKCS7_GUID) == 0) {
 			ext = L"PKCS7";
+		} else if (CompareGuid(&CertList->SignatureType, &EFI_CERT_SHA256_GUID) == 0) {
+			ext = L"SHA256";
 		} else {
 			ext = L"Unknown";
 		}
 
-		for (Index = 0; Index < CertCount; Index++) {
-			Print(L"List %d Signature %d, size %d, Type %g, GUID %g\n",
-			      count, Index, CertList->SignatureSize, &CertList->SignatureType, &Cert->SignatureOwner);
-			SPrint(buf, 0, L"%s-%d-%d-%s-%g", name, count, Index, ext, &Cert->SignatureOwner);
-			Print(L"Writing to file %s\n", buf);
-			status = simple_file_open(image, buf, &file, EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_CREATE);
-			if (status != EFI_SUCCESS) {
-				Print(L"Failed to open file %s: %d\n", buf, status);
-				goto cont;
-			}
-			status = simple_file_write_all(file, CertList->SignatureSize-sizeof(EFI_GUID), Cert->SignatureData);
-			if (status != EFI_SUCCESS) {
-				Print(L"Failed to write signature to file %s: %d\n", buf, status);
-				goto cont;
-			}
-			simple_file_close(file);
+		Print(L"%s: List %d, type %s\n", name, count, ext);
 
-		cont:
-			Cert = (EFI_SIGNATURE_DATA *) ((UINT8 *) Cert + CertList->SignatureSize);
+		certentry_for_each_cert(Cert, CertList) {
+			Print(L"    Signature %d, size %d, owner %g\n",
+			      Index++, CertList->SignatureSize,
+			      &Cert->SignatureOwner);
+
+			if (StrCmp(ext, L"X509") == 0) {
+				CHAR16 buf1[4096];
+
+				x509_to_str(Cert->SignatureData,
+					    CertList->SignatureSize,
+					    X509_OBJ_SUBJECT, buf1,
+					    sizeof(buf1));
+				Print(L"        Subject: %s\n", buf1);
+
+				x509_to_str(Cert->SignatureData,
+					    CertList->SignatureSize,
+					    X509_OBJ_ISSUER, buf1,
+					    sizeof(buf1));
+				Print(L"        Issuer: %s\n", buf1);
+				
+			} else if (StrCmp(ext, L"SHA256") == 0) {
+				CHAR16 buf1[256];
+
+				StrCpy(buf1, L"Hash: ");
+				sha256_StrCat_hash(buf1, Cert->SignatureData);
+				Print(L"        %s\n", buf1);
+			}
+
+			if (save_file) {
+				SPrint(buf, 0, L"%s-%d-%d-%s-%g", name, count, Index, ext, &Cert->SignatureOwner);
+				Print(L"Writing to file %s\n", buf);
+				status = simple_file_open(image, buf, &file, EFI_FILE_MODE_READ | EFI_FILE_MODE_WRITE | EFI_FILE_MODE_CREATE);
+				if (status != EFI_SUCCESS) {
+					Print(L"Failed to open file %s: %d\n", buf, status);
+					continue;
+				}
+				status = simple_file_write_all(file, CertList->SignatureSize-sizeof(EFI_GUID), Cert->SignatureData);
+				simple_file_close(file);
+				if (status != EFI_SUCCESS) {
+					Print(L"Failed to write signature to file %s: %d\n", buf, status);
+					continue;
+				}
+			}
+
 		}
-		DataSize -= CertList->SignatureListSize;
-		CertList = (EFI_SIGNATURE_LIST *) ((UINT8 *) CertList + CertList->SignatureListSize);
 	}
 	FreePool(buf);
 }
@@ -70,25 +100,78 @@ parse_db(UINT8 *data, UINTN len, EFI_HANDLE image, CHAR16 *name)
 EFI_STATUS
 efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 {
-	EFI_STATUS efi_status;
+	EFI_STATUS status;
 	CHAR16 *variables[] = { L"PK", L"KEK", L"db", L"dbx", L"MokList" };
 	EFI_GUID owners[] = { GV_GUID, GV_GUID, SIG_DB, SIG_DB, MOK_OWNER };
+	CHAR16 **ARGV, *progname;
 	UINT8 *data;
 	UINTN len;
-	int i;
+	int i, argc, save_keys = 0;
 
 	InitializeLib(image, systab);
 
-	for (i = 0; i < ARRAY_SIZE(owners); i++) {
-		efi_status = get_variable(variables[i], &data, &len, owners[i]);
-		if (efi_status == EFI_NOT_FOUND) {
+	status = argsplit(image, &argc, &ARGV);
+
+	if (status != EFI_SUCCESS) {
+		Print(L"Failed to parse arguments: %d\n", status);
+		return status;
+	}
+
+	progname = ARGV[0];
+	while (argc > 1 && ARGV[1][0] == L'-') {
+		if (StrCmp(ARGV[1], L"-s") == 0) {
+			save_keys = 1;
+			ARGV += 1;
+			argc -= 1;
+		} else {
+			/* unrecognised option */
+			break;
+		}
+	}
+
+	if (argc != 2 && argc != 1) {
+		Print(L"Usage: %s: [-g guid] [-a] [-e] [-b] var file\n", progname);
+		return EFI_INVALID_PARAMETER;
+	}
+
+	if (argc == 1) {
+		for (i = 0; i < ARRAY_SIZE(owners); i++) {
+			status = get_variable(variables[i], &data, &len, owners[i]);
+			if (status == EFI_NOT_FOUND) {
+				Print(L"Variable %s has no entries\n", variables[i]);
+			} else if (status != EFI_SUCCESS) {
+				Print(L"Failed to get %s: %d\n", variables[i], status);
+			} else {
+				Print(L"Variable %s length %d\n", variables[i], len);
+				parse_db(data, len, image, variables[i], save_keys);
+				FreePool(data);
+			}
+		}
+	} else {
+		CHAR16 *var = ARGV[1];
+		
+		for(i = 0; i < ARRAY_SIZE(variables); i++) {
+			if (StrCmp(var, variables[i]) == 0) {
+				break;
+			}
+		}
+		if (i == ARRAY_SIZE(variables)) {
+			Print(L"Invalid Variable %s\nVariable must be one of: ", var);
+			for (i = 0; i < ARRAY_SIZE(variables); i++)
+				Print(L"%s ", variables[i]);
+			Print(L"\n");
+			return EFI_INVALID_PARAMETER;
+		}
+		status = get_variable(variables[i], &data, &len, owners[i]);
+		if (status == EFI_NOT_FOUND) {
 			Print(L"Variable %s has no entries\n", variables[i]);
-		} else if (efi_status != EFI_SUCCESS) {
-			Print(L"Failed to get %s: %d\n", variables[i], efi_status);
+		} else if (status != EFI_SUCCESS) {
+			Print(L"Failed to get %s: %d\n", variables[i], status);
 		} else {
 			Print(L"Variable %s length %d\n", variables[i], len);
-			parse_db(data, len, image, variables[i]);
+			parse_db(data, len, image, variables[i], save_keys);
 			FreePool(data);
+			parse_db(data, len, image, variables[i], save_keys);
 		}
 	}
 	return EFI_SUCCESS;

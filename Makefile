@@ -58,7 +58,7 @@ hashlist.h: HashTool.hash KeyTool.hash
 
 
 Loader.so: lib/lib-efi.a
-ReadVars.so: lib/lib-efi.a
+ReadVars.so: lib/lib-efi.a lib/asn1/libasn1-efi.a
 UpdateVars.so: lib/lib-efi.a
 LockDown.so: lib/lib-efi.a
 KeyTool.so: lib/lib-efi.a lib/asn1/libasn1-efi.a

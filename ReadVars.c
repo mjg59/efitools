@@ -106,7 +106,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	CHAR16 **ARGV, *progname;
 	UINT8 *data;
 	UINTN len;
-	int i, argc, save_keys = 0;
+	int i, argc, save_keys = 0, no_print = 0;
 
 	InitializeLib(image, systab);
 
@@ -123,14 +123,18 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 			save_keys = 1;
 			ARGV += 1;
 			argc -= 1;
+		} else if (StrCmp(ARGV[1], L"-n") == 0) {
+			no_print = 1;
+			ARGV += 1;
+			argc -= 1;
 		} else {
 			/* unrecognised option */
 			break;
 		}
 	}
 
-	if (argc != 2 && argc != 1) {
-		Print(L"Usage: %s: [-g guid] [-a] [-e] [-b] var file\n", progname);
+	if ((argc != 2 && argc != 1) || (argc != 1 && no_print)) {
+		Print(L"Usage: %s: [-s|-n] [var]\n", progname);
 		return EFI_INVALID_PARAMETER;
 	}
 

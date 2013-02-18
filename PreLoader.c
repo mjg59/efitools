@@ -10,6 +10,7 @@
 
 #include <console.h>
 #include <errors.h>
+#include <guid.h>
 #include <security_policy.h>
 #include <execute.h>
 
@@ -22,16 +23,31 @@ EFI_STATUS
 efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 {
 	EFI_STATUS status;
+	UINT8 SecureBoot;
+	UINTN DataSize = sizeof(SecureBoot);
 
 	InitializeLib(image, systab);
 
 	console_reset();
 
+	status = uefi_call_wrapper(RT->GetVariable, 5, L"SecureBoot",
+				   &GV_GUID, NULL, &DataSize, &SecureBoot);
+	if (status != EFI_SUCCESS) {
+		Print(L"Not a Secure Boot Platform %d\n", status);
+		goto override;
+	}
+
+	if (!SecureBoot) {
+		Print(L"Secure Boot Disabled\n");
+		goto override;
+	}
+
 	status = security_policy_install();
 	if (status != EFI_SUCCESS) {
 		console_error(L"Failed to install override security policy",
 			      status);
-		return status;
+		/* Don't die, just try to execute without security policy */
+		goto override;
 	}
 
 	/* install statically compiled in hashes */
@@ -97,6 +113,18 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	status = security_policy_uninstall();
 	if (status != EFI_SUCCESS)
 		console_error(L"Failed to uninstall security policy.  Platform needs rebooting", status);
+
+	return status;
+ override:
+	status = execute(image, loader);
+	
+	if (status != EFI_SUCCESS) {
+		CHAR16 buf[256];
+
+		StrCpy(buf, L"Failed to start ");
+		StrCat(buf, loader);
+		console_error(buf, status);
+	}
 
 	return status;
 }

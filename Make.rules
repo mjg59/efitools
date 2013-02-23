@@ -6,11 +6,14 @@ INCDIR	   = -I$(TOPDIR)include/ -I/usr/include/efi -I/usr/include/efi/$(ARCH) -I
 CPPFLAGS   = -DCONFIG_$(ARCH)
 CFLAGS	   = -O2 -fpic -Wall -fshort-wchar -fno-strict-aliasing -fno-merge-constants -mno-red-zone -fno-stack-protector
 LDFLAGS	   = -nostdlib
-CRTOBJS		= /usr/lib64/crt0-efi-$(ARCH).o
+CRTOBJ		= crt0-efi-$(ARCH).o
+CRTPATHS	= /lib /lib64 /lib/efi /lib64/efi /usr/lib /usr/lib64 /usr/lib/efi /usr/lib64/efi
+CRTPATH		= $(shell for f in $(CRTPATHS); do if [ -e $$f/$(CRTOBJ) ]; then echo $$f; break; fi; done)
+CRTOBJS		= $(CRTPATH)/$(CRTOBJ)
 # there's a bug in the gnu tools ... the .reloc section has to be
 # aligned otherwise the file alignment gets screwed up
 LDSCRIPT	= $(TOPDIR)/elf_$(ARCH)_efi.lds
-LDFLAGS		+= -T $(LDSCRIPT) -shared -Bsymbolic $(CRTOBJS) -L /usr/lib64
+LDFLAGS		+= -T $(LDSCRIPT) -shared -Bsymbolic $(CRTOBJS) -L $(CRTPATH)
 LOADLIBES	= -lefi -lgnuefi $(shell $(CC) -print-libgcc-file-name)
 FORMAT		= efi-app-$(ARCH)
 OBJCOPY		= objcopy

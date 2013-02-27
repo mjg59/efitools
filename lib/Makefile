@@ -1,6 +1,7 @@
-LIBFILES = simple_file.o pecoff.o variables.o guid.o sha256.o console.o \
+FILES = simple_file.o pecoff.o guid.o sha256.o console.o \
 	security_policy.o execute.o configtable.o shell.o
-EFILIBFILES = $(patsubst %.o,%.efi.o,$(LIBFILES))
+LIBFILES = $(FILES) kernel_efivars.o
+EFILIBFILES = $(patsubst %.o,%.efi.o,$(FILES)) variables.o 
 
 include ../Make.rules
 

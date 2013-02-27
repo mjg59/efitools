@@ -34,12 +34,13 @@ kernel_variable_init(void)
 	if (kernel_efi_path)
 		return;
 	mktemp(fname);
-	snprintf(cmdline, sizeof(cmdline), "mount -l -t efivarfs > %s", fname);
+	snprintf(cmdline, sizeof(cmdline), "mount -l > %s", fname);
 	ret = system(cmdline);
 	if (WEXITSTATUS(ret) != 0)
 		/* hopefully stderr said what was wrong */
 		exit(1);
 	fd = open(fname, O_RDONLY);
+	unlink(fname);
 	if (fd < 0) {
 		fprintf(stderr, "Failed to open output of %s\n", cmdline);
 		exit(1);
@@ -54,10 +55,20 @@ kernel_variable_init(void)
 	}
 	buf = malloc(st.st_size);
 	read(fd, buf, st.st_size);
-	char dummy[512], path[512], type[512];
-	sscanf(buf, "%s on %s type %s ", dummy, path, type);
+	close(fd);
+
+	char *ptr = buf;
+	char path[512], type[512];
+	while (ptr < buf + st.st_size) {
+		int count;
+
+		sscanf(ptr, "%*s on %s type %s %*s\n%n", path, type, &count);
+		ptr += count;
+		if (strcmp(type, "efivarfs") != 0)
+			continue;
+	}
 	if (strcmp(type, "efivarfs") != 0) {
-		fprintf(stderr, "error with mount -l output: %s\n", buf);
+		fprintf(stderr, "No efivarfs filesystem is mounted\n");
 		exit(1);
 	}
 	kernel_efi_path = malloc(strlen(path) + 1);

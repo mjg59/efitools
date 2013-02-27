@@ -1,0 +1,27 @@
+[name]
+efi-updatevar - tool for updating secure variables
+
+[description]
+
+Takes a variety of input files and adds them to one of the UEFI secure boot
+signature or key databases.
+
+[examples]
+
+Assuming you own your own platform key and have the PK.auth and
+noPK.auth files which go with it, you can programmatically move the
+system out of User Mode by doing
+
+efi-updatevar -f noPK.auth PK
+
+and put it back again with
+
+efi-updatevar -f PK.auth PK
+
+To add the hash of an efi binary bin.efi to db do
+
+efi-updatevar -b bin.efi db
+
+And to append an EFI signature list append.esl to db do
+
+efi-updatevar -a -e append.esl db

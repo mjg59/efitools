@@ -1,7 +1,7 @@
 EFIFILES = HelloWorld.efi LockDown.efi Loader.efi ReadVars.efi UpdateVars.efi \
 	KeyTool.efi HashTool.efi PreLoader.efi SetNull.efi
 BINARIES = cert-to-efi-sig-list sig-list-to-certs sign-efi-sig-list \
-	hash-to-efi-sig-list efi-keytool efi-readvar
+	hash-to-efi-sig-list efi-keytool efi-readvar efi-updatevar
 
 export TOPDIR	:= $(shell pwd)/
 
@@ -83,6 +83,9 @@ efi-keytool: efi-keytool.o lib/lib.a
 
 efi-readvar: efi-readvar.o lib/lib.a
 	$(CC) -o $@ $< -lcrypto lib/lib.a
+
+efi-updatevar: efi-updatevar.o lib/lib.a
+	$(CC) -o $@ $< lib/lib.a
 
 clean:
 	rm -f PK.* KEK.* DB.* $(EFIFILES) $(EFISIGNED) $(BINARIES) *.o *.so

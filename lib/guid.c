@@ -30,6 +30,12 @@ void str_to_guid(const char *str, EFI_GUID *guid)
 	       guid->Data4 + 3, guid->Data4 + 4, guid->Data4 + 5,
 	       guid->Data4 + 6, guid->Data4 + 7);
 }
+
+int
+compare_guid(EFI_GUID *g1, EFI_GUID *g2)
+{
+	return memcmp(g1, g2, sizeof(*g1));
+}
 #endif
 
 /* all the necessary guids */

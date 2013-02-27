@@ -51,6 +51,15 @@ noPK.esl:
 noPK.auth: noPK.esl PK.crt sign-efi-sig-list
 	./sign-efi-sig-list -c PK.crt -k PK.key PK $< $@
 
+PK.auth: PK.esl PK.crt sign-efi-sig-list
+	./sign-efi-sig-list -c PK.crt -k PK.key PK $< $@
+
+KEK.auth: KEK.esl PK.crt sign-efi-sig-list
+	./sign-efi-sig-list -c PK.crt -k PK.key KEK $< $@
+
+DB.auth: DB.esl KEK.crt sign-efi-sig-list
+	./sign-efi-sig-list -c KEK.crt -k KEK.key db $< $@
+
 hashlist.h: HashTool.hash
 	cat $^ > /tmp/tmp.hash
 	xxd -i /tmp/tmp.hash > $@

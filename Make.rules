@@ -46,9 +46,6 @@ endif
 %.esl: %.crt cert-to-efi-sig-list
 	./cert-to-efi-sig-list -g $(MYGUID) $< $@
 
-%.auth: %.esl sign-efi-sig-list
-	./sign-efi-sig-list -c $*.crt -k $*.key $* $< $@
-
 %.o: %.c
 	$(CC) $(INCDIR) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 

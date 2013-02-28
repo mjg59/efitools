@@ -34,7 +34,7 @@
 static void
 usage(const char *progname)
 {
-	printf("Usage: %s: [-a] [-e] [-g <guid>] [-b <file>|-f <file>|-c file] <var>\n", progname);
+	printf("Usage: %s: [-a] [-e] [-k <key>] [-g <guid>] [-b <file>|-f <file>|-c file] <var>\n", progname);
 }
 
 static void
@@ -49,6 +49,7 @@ help(const char *progname)
 	       "\t-f <file>\tAdd the key file (.esl or .auth) to the <var>\n"
 	       "\t-c <file>\tAdd the x509 certificate to the <var> (with <guid> if provided\n"
 	       "\t-g <guid>\tOptional <guid> for the X509 Certificate\n"
+	       "\t-k <key>\tSecret key file for authorising user mode updates\n"
 	       );
 }
 
@@ -56,6 +57,7 @@ int
 main(int argc, char *argv[])
 {
 	char *variables[] = { "PK", "KEK", "db", "dbx" };
+	char *signedby[] = { "PK", "PK", "KEK", "KEK" };
 	EFI_GUID *owners[] = { &GV_GUID, &GV_GUID, &SIG_DB, &SIG_DB };
 	EFI_GUID *owner, guid = MOK_OWNER;
 	int i, esl_mode = 0, fd, ret;
@@ -84,8 +86,6 @@ main(int argc, char *argv[])
 			argv += 1;
 			argc -= 1;
 		} else if (strcmp(argv[1], "-b") == 0) {
-			esl_mode = 1;
-			attributes |= EFI_VARIABLE_APPEND_WRITE;
 			hash_mode = argv[2];
 			argv += 2;
 			argc -= 2;
@@ -200,14 +200,23 @@ main(int argc, char *argv[])
 	if (hash_mode) {
 		uint8_t hash[SHA256_DIGEST_SIZE];
 		EFI_STATUS status;
+		int len;
 
+		esl_mode = 1;
+		attributes |= EFI_VARIABLE_APPEND_WRITE;
 		status = sha256_get_pecoff_digest_mem(buf, st.st_size, hash);
+		free(buf);
 		if (status != EFI_SUCCESS) {
 			fprintf(stderr, "Failed to get hash of %s\n", name);
 			exit(1);
 		}
-		ret = set_variable_hash(var, owner, attributes, hash);
-	} else if (esl_mode) {
+		buf = (char *)hash_to_esl(&guid, &len, hash);
+		st.st_size = len;
+		printf("Got hash of size %d\n", st.st_size);
+		printf("buf = %02x %02x %02x %02x\n", buf[0], buf[1], buf[2], buf[3]);
+	}
+
+	if (esl_mode) {
 		ret = set_variable_esl(var, owner, attributes, st.st_size, buf);
 	} else {
 		ret = set_variable(var, owner, attributes, st.st_size, buf);

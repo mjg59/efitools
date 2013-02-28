@@ -31,7 +31,7 @@
 static void
 usage(const char *progname)
 {
-	printf("Usage: %s: [-v <var>] [-s <list>[-<entry>]]\n", progname);
+	printf("Usage: %s: [-v <var>] [-s <list>[-<entry>]] [-o <file>]\n", progname);
 }
 
 static void
@@ -43,6 +43,7 @@ help(const char *progname)
 	       "\t-v <var>\tlist only the contents of <var>\n"
 	       "\t-s <list>[-<entry>]\tlist only a given signature list (and optionally\n"
 	       "\t\tonly a given entry in that list\n"
+	       "\t-o <file>\toutput the requested signature lists to <file>\n"
 	       );
 }
 
@@ -115,9 +116,9 @@ int
 main(int argc, char *argv[])
 {
 	char *variables[] = { "PK", "KEK", "db", "dbx" };
-	char *progname = argv[0], *var = NULL;
+	char *progname = argv[0], *var = NULL, *file = NULL;
 	EFI_GUID *owners[] = { &GV_GUID, &GV_GUID, &SIG_DB, &SIG_DB };
-	int i, found = 0, sig = -1, entry = -1;
+	int i, found = 0, sig = -1, entry = -1, fd;
 
 	while (argc > 1 && argv[1][0] == '-') {
 		if (strcmp("--version", argv[1]) == 0) {
@@ -134,6 +135,10 @@ main(int argc, char *argv[])
 			sscanf(argv[2], "%d-%d", &sig, &entry);
 			argv += 2;
 			argc -= 2;
+		} else if (strcmp(argv[1], "-o") == 0) {
+			file = argv[2];
+			argv += 2;
+			argc -= 2;
 		} else {
 			/* unrecognised option */
 			break;
@@ -148,6 +153,15 @@ main(int argc, char *argv[])
 	if (sig != -1 && !var) {
 		fprintf(stderr, "need -v <var> with -s option\n");
 		exit(1);
+	}
+
+	if (file) {
+		fd = open(file, O_CREAT|O_TRUNC|O_WRONLY, 0600);
+		if (fd < 0) {
+			fprintf(stderr, "failed to open %s: ", file);
+			perror("");
+			exit(1);
+		}
 	}
 
 	kernel_variable_init();
@@ -170,9 +184,14 @@ main(int argc, char *argv[])
 			continue;
 		}
 		printf("Variable %s, length %d\n", variables[i], len);
-		parse_db(variables[i], buf, len, sig, entry);
+		if (file)
+			write(fd, buf, len);
+		else
+			parse_db(variables[i], buf, len, sig, entry);
 		free(buf);
 	}
+	if (file)
+		close(fd);
 	if (!found) {
 		fprintf(stderr, "variable %s is not a UEFI secure boot variable\n", var);
 		exit(1);

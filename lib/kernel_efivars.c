@@ -219,20 +219,36 @@ set_variable_esl(const char *var, EFI_GUID *guid, uint32_t attributes,
 	return ret;
 }
 
+uint8_t *
+hash_to_esl(EFI_GUID *owner, int *len,
+	    uint8_t hash[SHA256_DIGEST_SIZE])
+{
+	const int siglen = sizeof(EFI_SIGNATURE_LIST) + sizeof(EFI_SIGNATURE_DATA) - 1 + SHA256_DIGEST_SIZE;
+	uint8_t *sig = malloc(siglen);
+	EFI_SIGNATURE_LIST *l = (void *)sig;
+	EFI_SIGNATURE_DATA *d = (void *)sig + sizeof(EFI_SIGNATURE_LIST);
+
+	if (len)
+		*len = siglen;
+
+	memset(sig, 0, siglen);
+	l->SignatureType = EFI_CERT_SHA256_GUID;
+	l->SignatureListSize = siglen;
+	l->SignatureSize = 16 +32; /* UEFI defined */
+	memcpy(&d->SignatureData, hash, SHA256_DIGEST_SIZE);
+	d->SignatureOwner = *owner;
+
+	return sig;
+}
 
 int
 set_variable_hash(const char *var, EFI_GUID *owner, uint32_t attributes,
 		  uint8_t hash[SHA256_DIGEST_SIZE])
 {
-	uint8_t sig[sizeof(EFI_SIGNATURE_LIST) + sizeof(EFI_SIGNATURE_DATA) - 1 + SHA256_DIGEST_SIZE];
-	EFI_SIGNATURE_LIST *l = (void *)sig;
-	EFI_SIGNATURE_DATA *d = (void *)sig + sizeof(EFI_SIGNATURE_LIST);
+	int len;
+	uint8_t *sig = hash_to_esl(&MOK_OWNER, &len, hash);
 
-	memset(sig, 0, sizeof(sig));
-	l->SignatureType = EFI_CERT_SHA256_GUID;
-	l->SignatureListSize = sizeof(sig);
-	l->SignatureSize = 16 +32; /* UEFI defined */
-	memcpy(&d->SignatureData, hash, SHA256_DIGEST_SIZE);
-	d->SignatureOwner = MOK_OWNER;
-	return set_variable_esl(var, owner, attributes, sizeof(sig), sig);
+	int ret = set_variable_esl(var, owner, attributes, len, sig);
+	free(sig);
+	return ret;
 }

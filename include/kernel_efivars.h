@@ -21,3 +21,6 @@ set_variable_esl(const char *var, EFI_GUID *guid, uint32_t attributes,
 int
 set_variable_hash(const char *var, EFI_GUID *owner, uint32_t attributes,
 		  uint8_t hash[SHA256_DIGEST_SIZE]);
+uint8_t *
+hash_to_esl(EFI_GUID *owner, int *len,
+	    uint8_t hash[SHA256_DIGEST_SIZE]);

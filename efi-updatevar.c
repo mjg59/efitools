@@ -16,6 +16,9 @@
 #include <unistd.h>
 
 #include <openssl/x509.h>
+#include <openssl/bio.h>
+#include <openssl/err.h>
+#include <openssl/pem.h>
 
 #define __STDC_VERSION__ 199901L
 #include <efi.h>
@@ -31,7 +34,7 @@
 static void
 usage(const char *progname)
 {
-	printf("Usage: %s: [-a] [-e] [-b <file>|-f <file>] <var>\n", progname);
+	printf("Usage: %s: [-a] [-e] [-g <guid>] [-b <file>|-f <file>|-c file] <var>\n", progname);
 }
 
 static void
@@ -44,6 +47,8 @@ help(const char *progname)
 	       "\t-e\tuse EFI Signature List instead of signed update (only works in Setup Mode\n"
 	       "\t-b <binfile>\tAdd hash of <binfile> to the signature list\n"
 	       "\t-f <file>\tAdd the key file (.esl or .auth) to the <var>\n"
+	       "\t-c <file>\tAdd the x509 certificate to the <var> (with <guid> if provided\n"
+	       "\t-g <guid>\tOptional <guid> for the X509 Certificate\n"
 	       );
 }
 
@@ -52,7 +57,7 @@ main(int argc, char *argv[])
 {
 	char *variables[] = { "PK", "KEK", "db", "dbx" };
 	EFI_GUID *owners[] = { &GV_GUID, &GV_GUID, &SIG_DB, &SIG_DB };
-	EFI_GUID *owner;
+	EFI_GUID *owner, guid = MOK_OWNER;
 	int i, esl_mode = 0, fd, ret;
 	struct stat st;
 	uint32_t attributes = EFI_VARIABLE_NON_VOLATILE
@@ -60,7 +65,7 @@ main(int argc, char *argv[])
 		| EFI_VARIABLE_BOOTSERVICE_ACCESS
 		| EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS;
 	char *hash_mode = NULL, *file = NULL, *var, *progname = argv[0], *buf,
-		*name;
+		*name, *crt_file = NULL;
 	
 
 	while (argc > 1 && argv[1][0] == '-') {
@@ -86,6 +91,17 @@ main(int argc, char *argv[])
 			argc -= 2;
 		} else if (strcmp(argv[1], "-f") == 0) {
 			file = argv[2];
+			argv += 2;
+			argc -= 2;
+		} else if (strcmp(argv[1], "-g") == 0) {
+			if (str_to_guid(argv[2], &guid)) {
+				fprintf(stderr, "Invalid GUID %s\n", argv[2]);
+				exit(1);
+			}
+			argv += 2;
+			argc -= 2;
+		} else if (strcmp(argv[1], "-c") == 0) {
+			crt_file = argv[2];
 			argv += 2;
 			argc -= 2;
 		} else {
@@ -115,31 +131,71 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
-	if (file && hash_mode) {
-		fprintf(stderr, "Can only specify one of -f or -b\n");
-		exit(1);
-	}
-
-	if (!file && !hash_mode) {
-		fprintf(stderr, "must specify one of -f or -b\n");
+	if (!!file + !!hash_mode + !!crt_file != 1) {
+		fprintf(stderr, "must specify exactly one of -f, -b or -c\n");
 		exit(1);
 	}
 			
 	kernel_variable_init();
 	name = file ? file : hash_mode;
-	fd = open(name, O_RDONLY);
-	if (fd < 0) {
-		fprintf(stderr, "Failed to read file %s: ", name);
-		perror("");
-		exit(1);
+	if (name) {
+		fd = open(name, O_RDONLY);
+		if (fd < 0) {
+			fprintf(stderr, "Failed to read file %s: ", name);
+			perror("");
+			exit(1);
+		}
+		if (fstat(fd, &st) < 0) {
+			perror("stat failed");
+			exit(1);
+		}
+		buf = malloc(st.st_size);
+		read(fd, buf, st.st_size);
+		close(fd);
+	} else if (crt_file) {
+		X509 *X = NULL;
+		BIO *bio;
+		char *crt_file_ext = &crt_file[strlen(crt_file) - 4];
+
+		esl_mode = 1;
+
+		bio = BIO_new_file(crt_file, "r");
+		if (!bio) {
+			fprintf(stderr, "Failed to load certificate from %s\n", crt_file);
+			ERR_print_errors_fp(stderr);
+			exit(1);
+		}
+		if (strcasecmp(crt_file_ext, ".der") == 0
+		    || strcasecmp(crt_file_ext, ".cer") == 0)
+			/* DER format */
+			X = d2i_X509_bio(bio, NULL);
+		else
+			/* else assume PEM */
+			X = PEM_read_bio_X509(bio, NULL, NULL, NULL);
+		if (!X) {
+			fprintf(stderr, "Failed to load certificate from %s\n", crt_file);
+			ERR_print_errors_fp(stderr);
+			exit(1);
+		}
+		BIO_free_all(bio);
+
+		int cert_len = i2d_X509(X, NULL);
+		cert_len += sizeof(EFI_SIGNATURE_LIST) + OFFSET_OF(EFI_SIGNATURE_DATA, SignatureData);
+		EFI_SIGNATURE_LIST *esl = malloc(cert_len);
+		unsigned char *tmp = (unsigned char *)esl + sizeof(EFI_SIGNATURE_LIST) + OFFSET_OF(EFI_SIGNATURE_DATA, SignatureData);
+		i2d_X509(X, &tmp);
+		esl->SignatureListSize = cert_len;
+		esl->SignatureSize = (cert_len - sizeof(EFI_SIGNATURE_LIST));
+		esl->SignatureHeaderSize = 0;
+		esl->SignatureType = EFI_CERT_X509_GUID;
+
+		EFI_SIGNATURE_DATA *sig_data = (void *)esl + sizeof(EFI_SIGNATURE_LIST);
+
+		sig_data->SignatureOwner = guid;
+
+		buf = (char *)esl;
+		st.st_size = cert_len;
 	}
-	if (fstat(fd, &st) < 0) {
-		perror("stat failed");
-		exit(1);
-	}
-	buf = malloc(st.st_size);
-	read(fd, buf, st.st_size);
-	close(fd);
 
 	if (hash_mode) {
 		uint8_t hash[SHA256_DIGEST_SIZE];

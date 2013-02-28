@@ -94,7 +94,7 @@ efi-readvar: efi-readvar.o lib/lib.a
 	$(CC) -o $@ $< -lcrypto lib/lib.a
 
 efi-updatevar: efi-updatevar.o lib/lib.a
-	$(CC) -o $@ $< lib/lib.a
+	$(CC) -o $@ $< -lcrypto lib/lib.a
 
 clean:
 	rm -f PK.* KEK.* DB.* $(EFIFILES) $(EFISIGNED) $(BINARIES) *.o *.so

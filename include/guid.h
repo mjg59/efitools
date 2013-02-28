@@ -2,7 +2,7 @@
 
 #ifndef BUILD_EFI
 const char *guid_to_str(EFI_GUID *guid);
-void str_to_guid(const char *str, EFI_GUID *guid);
+int str_to_guid(const char *str, EFI_GUID *guid);
 int compare_guid(EFI_GUID *g1, EFI_GUID *g2);
 #endif
 

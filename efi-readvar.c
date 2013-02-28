@@ -23,12 +23,31 @@
 #include <kernel_efivars.h>
 #include <guid.h>
 #include <sha256.h>
+#include <version.h>
 #include "efiauthenticated.h"
 
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
 
+static void
+usage(const char *progname)
+{
+	printf("Usage: %s: [-v <var>] [-s <list>[-<entry>]]\n", progname);
+}
+
+static void
+help(const char *progname)
+{
+	usage(progname);
+	printf("List the contents of the UEFI signature databases\n\n"
+	       "Options:\n"
+	       "\t-v <var>\tlist only the contents of <var>\n"
+	       "\t-s <list>[-<entry>]\tlist only a given signature list (and optionally\n"
+	       "\t\tonly a given entry in that list\n"
+	       );
+}
+
 void
-parse_db(const char *name, uint8_t *data, uint32_t len)
+parse_db(const char *name, uint8_t *data, uint32_t len, int sig, int entry)
 {
 	EFI_SIGNATURE_LIST  *CertList = (EFI_SIGNATURE_LIST *)data;
 	EFI_SIGNATURE_DATA  *Cert;
@@ -38,7 +57,10 @@ parse_db(const char *name, uint8_t *data, uint32_t len)
 	certlist_for_each_certentry(CertList, data, size, DataSize) {
 		int Index = 0;
 		const char *ext;
-		count++;
+
+		if (sig != -1 && count != sig)
+			continue;
+
 
 		if (compare_guid(&CertList->SignatureType, &X509_GUID)== 0) {
 			ext = "X509";
@@ -52,15 +74,18 @@ parse_db(const char *name, uint8_t *data, uint32_t len)
 			ext = "Unknown";
 		}
 
-		printf("%s: List %ld, type %s\n", name, count, ext);
+		printf("%s: List %ld, type %s\n", name, count++, ext);
 
 		certentry_for_each_cert(Cert, CertList) {
+			if (entry != -1 && Index != entry)
+				continue;
+
 			printf("    Signature %d, size %d, owner %s\n",
 			      Index++, CertList->SignatureSize,
 			      guid_to_str(&Cert->SignatureOwner));
 
 			if (strcmp(ext, "X509") == 0) {
-				void *buf = Cert->SignatureData;
+				const unsigned char *buf = (unsigned char *)Cert->SignatureData;
 				X509 *X = d2i_X509(NULL, &buf,
 						   CertList->SignatureSize);
 				X509_NAME *issuer = X509_get_issuer_name(X);
@@ -90,8 +115,40 @@ int
 main(int argc, char *argv[])
 {
 	char *variables[] = { "PK", "KEK", "db", "dbx" };
+	char *progname = argv[0], *var = NULL;
 	EFI_GUID *owners[] = { &GV_GUID, &GV_GUID, &SIG_DB, &SIG_DB };
-	int i;
+	int i, found = 0, sig = -1, entry = -1;
+
+	while (argc > 1 && argv[1][0] == '-') {
+		if (strcmp("--version", argv[1]) == 0) {
+			version(progname);
+			exit(0);
+		} else if (strcmp("--help", argv[1]) == 0) {
+			help(progname);
+			exit(0);
+		} else if(strcmp(argv[1], "-v") == 0) {
+			var = argv[2];
+			argv += 2;
+			argc -= 2;
+		} else if (strcmp(argv[1], "-s") == 0) {
+			sscanf(argv[2], "%d-%d", &sig, &entry);
+			argv += 2;
+			argc -= 2;
+		} else {
+			/* unrecognised option */
+			break;
+		}
+	}
+
+	if (argc != 1) {
+		usage(progname);
+		exit(1);
+	}
+
+	if (sig != -1 && !var) {
+		fprintf(stderr, "need -v <var> with -s option\n");
+		exit(1);
+	}
 
 	kernel_variable_init();
 	for (i = 0; i < ARRAY_SIZE(owners); i++) {
@@ -99,6 +156,10 @@ main(int argc, char *argv[])
 		uint32_t len;
 		uint8_t *buf;
 
+		if (var && strcmp(var, variables[i]) != 0)
+			continue;
+
+		found = 1;
 		status = get_variable_alloc(variables[i], owners[i], NULL,
 					    &len, &buf);
 		if (status == ENOENT) {
@@ -109,8 +170,12 @@ main(int argc, char *argv[])
 			continue;
 		}
 		printf("Variable %s, length %d\n", variables[i], len);
-		parse_db(variables[i], buf, len);
+		parse_db(variables[i], buf, len, sig, entry);
 		free(buf);
+	}
+	if (!found) {
+		fprintf(stderr, "variable %s is not a UEFI secure boot variable\n", var);
+		exit(1);
 	}
 	return 0;
 }

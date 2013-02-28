@@ -1,0 +1,25 @@
+[name]
+efi-readvar - tool for showing secure variables
+
+[description]
+
+with no arguments, prints out the entire secure variable database and
+expands the contents of hashes and X509 certificates.  May be
+restricted to specific variables and specific signatures within
+variables.  Note that EFI signature lists are numbered from zero and
+may contain one or more entries (also numbered from zero), so 0-0
+represents the first entry of signature list zero.
+
+[examples]
+
+To see all the variables, type
+
+efi-readvars
+
+To see the second entry of signature list 1 for the db variable, do
+
+efi-readvars -v db -s 1-1
+
+To see all entries of signature list 0 for the KEK
+
+efi-readvars -v KEK -s 0

@@ -1,7 +1,7 @@
 EFIFILES = HelloWorld.efi LockDown.efi Loader.efi ReadVars.efi UpdateVars.efi \
 	KeyTool.efi HashTool.efi PreLoader.efi SetNull.efi
 BINARIES = cert-to-efi-sig-list sig-list-to-certs sign-efi-sig-list \
-	hash-to-efi-sig-list efi-keytool efi-readvar efi-updatevar
+	hash-to-efi-sig-list efi-readvar efi-updatevar
 
 export TOPDIR	:= $(shell pwd)/
 

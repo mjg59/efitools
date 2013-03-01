@@ -47,9 +47,9 @@ help(const char *progname)
 	       "\t-e\tuse EFI Signature List instead of signed update (only works in Setup Mode\n"
 	       "\t-b <binfile>\tAdd hash of <binfile> to the signature list\n"
 	       "\t-f <file>\tAdd the key file (.esl or .auth) to the <var>\n"
-	       "\t-c <file>\tAdd the x509 certificate to the <var> (with <guid> if provided\n"
+	       "\t-c <file>\tAdd the x509 certificate to the <var> (with <guid> if provided)\n"
 	       "\t-g <guid>\tOptional <guid> for the X509 Certificate\n"
-	       "\t-k <key>\tSecret key file for authorising user mode updates\n"
+	       "\t-k <key>\tSecret key file for authorising User Mode updates\n"
 	       );
 }
 
@@ -67,7 +67,7 @@ main(int argc, char *argv[])
 		| EFI_VARIABLE_BOOTSERVICE_ACCESS
 		| EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS;
 	char *hash_mode = NULL, *file = NULL, *var, *progname = argv[0], *buf,
-		*name, *crt_file = NULL;
+		*name, *crt_file = NULL, *key_file = NULL;
 	
 
 	while (argc > 1 && argv[1][0] == '-') {
@@ -104,6 +104,10 @@ main(int argc, char *argv[])
 			crt_file = argv[2];
 			argv += 2;
 			argc -= 2;
+		} else if (strcmp(argv[1], "-k") == 0) {
+			key_file = argv[2];
+			argv += 2;
+			argc -= 2;
 		} else {
 			/* unrecognised option */
 			break;
@@ -137,6 +141,10 @@ main(int argc, char *argv[])
 	}
 			
 	kernel_variable_init();
+	ERR_load_crypto_strings();
+	OpenSSL_add_all_digests();
+	OpenSSL_add_all_ciphers();
+
 	name = file ? file : hash_mode;
 	if (name) {
 		fd = open(name, O_RDONLY);
@@ -152,7 +160,7 @@ main(int argc, char *argv[])
 		buf = malloc(st.st_size);
 		read(fd, buf, st.st_size);
 		close(fd);
-	} else if (crt_file) {
+	} else {
 		X509 *X = NULL;
 		BIO *bio;
 		char *crt_file_ext = &crt_file[strlen(crt_file) - 4];
@@ -212,8 +220,124 @@ main(int argc, char *argv[])
 		}
 		buf = (char *)hash_to_esl(&guid, &len, hash);
 		st.st_size = len;
-		printf("Got hash of size %d\n", st.st_size);
-		printf("buf = %02x %02x %02x %02x\n", buf[0], buf[1], buf[2], buf[3]);
+	}
+
+	if (esl_mode && !variable_is_setupmode()) {
+		if (!key_file) {
+			fprintf(stderr, "Can't update variable in User Mode without a key\n");
+			exit(1);
+		}
+		BIO *key = BIO_new_file(key_file, "r");
+		EVP_PKEY *pkey = PEM_read_bio_PrivateKey(key, NULL, NULL, NULL);
+		if (!pkey) {
+			fprintf(stderr, "error reading private key %s\n", key_file);
+			exit(1);
+		}
+
+		uint8_t *esl;
+		uint32_t esl_len;
+		int ret = get_variable_alloc(signedby[i], &GV_GUID, NULL,
+					     &esl_len, &esl);
+		if (ret != 0) {
+			fprintf(stderr, "Failed to get %s: ", signedby[i]);
+			perror("");
+			exit(1);
+		}
+		EFI_SIGNATURE_LIST  *CertList = (EFI_SIGNATURE_LIST *)esl;
+		int DataSize = esl_len, size;
+
+		X509 *X = NULL;
+
+		certlist_for_each_certentry(CertList, esl, size, DataSize) {
+			EFI_SIGNATURE_DATA  *Cert;
+			if (compare_guid(&CertList->SignatureType, &X509_GUID) != 0)
+				continue;
+
+			certentry_for_each_cert(Cert, CertList) {
+				const unsigned char *psig = (unsigned char *)Cert->SignatureData;
+				X = d2i_X509(NULL, &psig, CertList->SignatureSize);
+				if (X509_check_private_key(X, pkey))
+					goto out;
+				X = NULL;
+			}
+		}
+	out:
+		if (!X) {
+			fprintf(stderr, "No public key matching %s in %s\n", key_file, signedby[i]);
+			exit (1);
+		}
+
+		EFI_TIME timestamp;
+		time_t t;
+		struct tm *tm;
+		memset(&timestamp, 0, sizeof(timestamp));
+		time(&t);
+		tm = gmtime(&t);
+		/* FIXME: currently timestamp is one year into future because of
+		 * the way we set up the secure environment  */
+		timestamp.Year = tm->tm_year + 1900 + 1;
+		timestamp.Month = tm->tm_mon;
+		timestamp.Day = tm->tm_mday;
+		timestamp.Hour = tm->tm_hour;
+		timestamp.Minute = tm->tm_min;
+		timestamp.Second = tm->tm_sec;
+
+		/* signature is over variable name (no null and uc16
+		 * chars), the vendor GUID, the attributes, the
+		 * timestamp and the contents */
+		int signbuflen = strlen(var)*2 + sizeof(EFI_GUID) + sizeof(attributes) + sizeof(timestamp) + st.st_size;
+		char *signbuf = malloc(signbuflen);
+		char *ptr = signbuf;
+		int j;
+		for (j = 0; j < strlen(var); j++) {
+			*(ptr++) = var[j]; 
+			*(ptr++) = 0;
+		}
+		memcpy(ptr, owners[i], sizeof(*owners[i]));
+		ptr += sizeof(*owners[i]);
+		memcpy(ptr, &attributes, sizeof(attributes));
+		ptr += sizeof(attributes);
+		memcpy(ptr, &timestamp, sizeof(timestamp));
+		ptr += sizeof(timestamp);
+		memcpy(ptr, buf, st.st_size);
+
+		BIO *bio = BIO_new_mem_buf(signbuf, signbuflen);
+		PKCS7 *p7 = PKCS7_sign(NULL, NULL, NULL, bio,
+				       PKCS7_BINARY | PKCS7_PARTIAL
+				       | PKCS7_DETACHED);
+		const EVP_MD *md = EVP_get_digestbyname("SHA256");
+		PKCS7_sign_add_signer(p7, X, pkey, md, PKCS7_BINARY
+				      | PKCS7_DETACHED);
+		PKCS7_final(p7, bio, PKCS7_BINARY | PKCS7_DETACHED);
+
+
+		int sigsize = i2d_PKCS7(p7, NULL);
+
+		EFI_VARIABLE_AUTHENTICATION_2 *var_auth = malloc(sizeof(EFI_VARIABLE_AUTHENTICATION_2) + sigsize);
+		var_auth->TimeStamp = timestamp;
+		var_auth->AuthInfo.CertType = EFI_CERT_TYPE_PKCS7_GUID;
+		var_auth->AuthInfo.Hdr.dwLength = sigsize + OFFSET_OF(WIN_CERTIFICATE_UEFI_GUID, CertData);
+		var_auth->AuthInfo.Hdr.wRevision = 0x0200;
+		var_auth->AuthInfo.Hdr.wCertificateType = WIN_CERT_TYPE_EFI_GUID;
+		unsigned char *tmp = var_auth->AuthInfo.CertData;
+		i2d_PKCS7(p7, &tmp);
+		ERR_print_errors_fp(stderr);
+
+		/* new update now consists of two parts: the
+		 * authentication header with the signature and the
+		 * payload (the original esl) */
+		int siglen = OFFSET_OF(EFI_VARIABLE_AUTHENTICATION_2, AuthInfo.CertData) + sigsize;
+		char *newbuf = malloc(siglen + st.st_size);
+
+		memcpy(newbuf, var_auth, siglen);
+		memcpy(newbuf + siglen, buf, st.st_size);
+
+		free(buf);
+		free(esl);
+		free(var_auth);
+		buf = newbuf;
+		st.st_size = siglen + st.st_size;
+		esl_mode = 0;
 	}
 
 	if (esl_mode) {

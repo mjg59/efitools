@@ -18,10 +18,26 @@ and put it back again with
 
 efi-updatevar -f PK.auth PK
 
-To add the hash of an efi binary bin.efi to db do
+To add the hash of an efi binary bin.efi to db in Setup Mode do
 
 efi-updatevar -b bin.efi db
 
-And to append an EFI signature list append.esl to db do
+And to append an EFI signature list append.esl to db in Setup Mode do
 
 efi-updatevar -a -e append.esl db
+
+To add your key (KEK.crt) to the Key Exchange Key in User Mode,
+assuming the private part of the platform key is in PK.key, do
+
+efi-updatevar -a -c KEK.crt -k PK.key KEK
+
+To add certificate DB.crt to db in User Mode assuming the private part
+of the Key Exchange Key (KEK) is in KEK.key do
+
+efi-updatevar -a -c DB.crt -k KEK.key db
+
+To replace the old platform key (PK) with a new one in newPK.crt in
+User Mode assuming the private part of the old platform key is in
+PK.key, do
+
+efi-updatevar -c newPK.crt -k PK.key db

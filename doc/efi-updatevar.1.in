@@ -6,6 +6,10 @@ efi-updatevar - tool for updating secure variables
 Takes a variety of input files and adds them to one of the UEFI secure boot
 signature or key databases.
 
+Note that the efivarfs filesystem must be mounted somewhere on the box
+and efi-updatevars must have the ability to write to the files (this
+usually means it must run as root).
+
 [examples]
 
 Assuming you own your own platform key and have the PK.auth and
@@ -41,3 +45,12 @@ User Mode assuming the private part of the old platform key is in
 PK.key, do
 
 efi-updatevar -c newPK.crt -k PK.key db
+
+To delete the private key, tipping the platform from User Mode to
+Setup Mode, do
+
+efi-updatevar -d 0 -k PK.key PK
+
+And to put the private key back again (in Setup Mode) do
+
+efi-updatevar -c PK.crt -k PK.key PK

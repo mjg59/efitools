@@ -34,7 +34,7 @@
 static void
 usage(const char *progname)
 {
-	printf("Usage: %s: [-a] [-e] [-k <key>] [-g <guid>] [-b <file>|-f <file>|-c file] <var>\n", progname);
+	printf("Usage: %s: [-a] [-e] [-d <list>[-<entry>]] [-k <key>] [-g <guid>] [-b <file>|-f <file>|-c file] <var>\n", progname);
 }
 
 static void
@@ -46,10 +46,11 @@ help(const char *progname)
 	       "\t-a\tappend a value to the variable instead of replacing it\n"
 	       "\t-e\tuse EFI Signature List instead of signed update (only works in Setup Mode\n"
 	       "\t-b <binfile>\tAdd hash of <binfile> to the signature list\n"
-	       "\t-f <file>\tAdd the key file (.esl or .auth) to the <var>\n"
-	       "\t-c <file>\tAdd the x509 certificate to the <var> (with <guid> if provided)\n"
+	       "\t-f <file>\tAdd or Replace the key file (.esl or .auth) to the <var>\n"
+	       "\t-c <file>\tAdd or Replace the x509 certificate to the <var> (with <guid> if provided)\n"
 	       "\t-g <guid>\tOptional <guid> for the X509 Certificate\n"
 	       "\t-k <key>\tSecret key file for authorising User Mode updates\n"
+	       "\t-d <list>[-<entry>]\tDelete the signature list <list> (or just a single <entry> within the list)\n"
 	       );
 }
 
@@ -60,7 +61,7 @@ main(int argc, char *argv[])
 	char *signedby[] = { "PK", "PK", "KEK", "KEK" };
 	EFI_GUID *owners[] = { &GV_GUID, &GV_GUID, &SIG_DB, &SIG_DB };
 	EFI_GUID *owner, guid = MOK_OWNER;
-	int i, esl_mode = 0, fd, ret;
+	int i, esl_mode = 0, fd, ret, delsig = -1, delentry = -1;
 	struct stat st;
 	uint32_t attributes = EFI_VARIABLE_NON_VOLATILE
 		| EFI_VARIABLE_RUNTIME_ACCESS
@@ -108,6 +109,10 @@ main(int argc, char *argv[])
 			key_file = argv[2];
 			argv += 2;
 			argc -= 2;
+		} else if (strcmp(argv[1], "-d") == 0) {
+			sscanf(argv[2], "%d-%d", &delsig, &delentry);
+			argv += 2;
+			argc -= 2;
 		} else {
 			/* unrecognised option */
 			break;
@@ -135,7 +140,7 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
-	if (!!file + !!hash_mode + !!crt_file != 1) {
+	if (delsig == -1 && (!!file + !!hash_mode + !!crt_file != 1)) {
 		fprintf(stderr, "must specify exactly one of -f, -b or -c\n");
 		exit(1);
 	}
@@ -146,7 +151,54 @@ main(int argc, char *argv[])
 	OpenSSL_add_all_ciphers();
 
 	name = file ? file : hash_mode;
-	if (name) {
+	if (delsig != -1) {
+		uint32_t len;
+		int status = get_variable_alloc(variables[i], owners[i], NULL,
+						&len, (uint8_t **)&buf);
+		if (status == ENOENT) {
+			fprintf(stderr, "Variable %s has no entries\n", variables[i]);
+			exit(1);
+		}
+		EFI_SIGNATURE_LIST  *CertList = (EFI_SIGNATURE_LIST *)buf;
+		EFI_SIGNATURE_DATA  *Cert;
+		int size, DataSize = len, count = 0;
+
+		certlist_for_each_certentry(CertList, buf, size, DataSize) {
+			int Index = 0;
+
+			if (count++ != delsig)
+				continue;
+			if (delentry == -1)
+				goto found;
+			certentry_for_each_cert(Cert, CertList) {
+				if (Index++ == delentry)
+					goto found;
+			}
+		}
+		if (delentry == -1)
+			fprintf(stderr, "signature %d does not exist in %s\n", delsig, variables[i]);
+		else
+			fprintf(stderr, "signature %d-%d does not exist in %s\n", delsig, delentry, variables[i]);
+		exit(1);
+	found:
+		;
+		int certs = (CertList->SignatureListSize - sizeof(EFI_SIGNATURE_LIST) - CertList->SignatureHeaderSize) / CertList->SignatureSize;
+		if (certs == 1 || delentry == -1) {
+			/* delete entire sig list + data */
+			DataSize -= CertList->SignatureListSize;
+			if (DataSize > 0)
+				memcpy(CertList,  (void *) CertList + CertList->SignatureListSize, DataSize - ((char *) CertList - buf));
+		} else {
+			int remain = DataSize - ((char *)Cert - buf) - CertList->SignatureSize;
+			/* only delete single sig */
+			DataSize -= CertList->SignatureSize;
+			CertList->SignatureListSize -= CertList->SignatureSize;
+			if (remain > 0)
+				memcpy(Cert, (void *)Cert + CertList->SignatureSize, remain);
+		}
+		st.st_size = DataSize;	/* reduce length of buf */
+		esl_mode = 1;
+	} else if (name) {
 		fd = open(name, O_RDONLY);
 		if (fd < 0) {
 			fprintf(stderr, "Failed to read file %s: ", name);
@@ -222,9 +274,9 @@ main(int argc, char *argv[])
 		st.st_size = len;
 	}
 
-	if (esl_mode && !variable_is_setupmode()) {
+	if (esl_mode && (!variable_is_setupmode() || strcmp(variables[i], "PK") == 0)) {
 		if (!key_file) {
-			fprintf(stderr, "Can't update variable in User Mode without a key\n");
+			fprintf(stderr, "Can't update variable%s without a key\n", variable_is_setupmode() ? "" : " in User Mode");
 			exit(1);
 		}
 		BIO *key = BIO_new_file(key_file, "r");

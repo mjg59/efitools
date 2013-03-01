@@ -167,7 +167,7 @@ set_variable(const char *var, EFI_GUID *guid, uint32_t attributes,
 
 	snprintf(varfs, varfs_len, "%s/%s-%s", kernel_efi_path,
 		 var, guid_to_str(guid));
-	fd = open(varfs, O_RDWR|O_CREAT|O_TRUNC);
+	fd = open(varfs, O_RDWR|O_CREAT|O_TRUNC, 0644);
 	free(varfs);
 	if (fd < 0)
 		return errno;

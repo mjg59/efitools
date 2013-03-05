@@ -48,6 +48,30 @@ console_get_keystroke(void)
 	return key;
 }
 
+int
+console_check_for_keystroke(CHAR16 key)
+{
+	EFI_INPUT_KEY k;
+	EFI_STATUS status;
+	/* check for both upper and lower cases */
+	CHAR16 key_u = key & ~0x20, key_l = key | 0x20;
+
+	/* the assumption is the user has been holding the key down so empty
+	 * the key buffer at this point because auto repeat may have filled
+	 * it */
+
+	for(;;) {
+		status = uefi_call_wrapper(ST->ConIn->ReadKeyStroke, 2, ST->ConIn, &k);
+
+		if (status != EFI_SUCCESS)
+			break;
+
+		if (key_u == k.UnicodeChar || key_l == k.UnicodeChar)
+			return 1;
+	}
+	return 0;
+}
+
 void
 console_print_box_at(CHAR16 *str_arr[], int highlight, int start_col, int start_row, int size_cols, int size_rows, int offset, int lines)
 {

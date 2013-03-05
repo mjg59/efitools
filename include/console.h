@@ -1,5 +1,7 @@
 EFI_INPUT_KEY
 console_get_keystroke(void);
+int
+console_check_for_keystroke(CHAR16 key);
 void
 console_print_box_at(CHAR16 *str_arr[], int highlight, int start_col, int start_row, int size_cols, int size_rows, int offset, int lines);
 void

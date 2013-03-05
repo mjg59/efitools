@@ -136,8 +136,8 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		if (ask_install_keys()) {
 			UINT8 sig[sizeof(EFI_SIGNATURE_LIST) + sizeof(EFI_SIGNATURE_DATA) - 1 + SHA256_DIGEST_SIZE];
 			EFI_SIGNATURE_LIST *l = (void *)sig;
-			EFI_SIGNATURE_DATA *d = (void *)sig + sizeof(EFI_SIGNATURE_LIST);
-			SetMem(sig, 0, sizeof(sig));
+			EFI_SIGNATURE_DATA *d = (void *)(sig + sizeof(EFI_SIGNATURE_LIST));
+			SetMem(sig, sizeof(sig), 0);
 			l->SignatureType = EFI_CERT_SHA256_GUID;
 			l->SignatureListSize = sizeof(sig);
 			l->SignatureSize = 16 +32; /* UEFI defined */

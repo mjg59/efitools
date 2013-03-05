@@ -106,7 +106,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 
 	status = simple_file_open(image, name, &file, EFI_FILE_MODE_READ);
 	if (status != EFI_SUCCESS) {
-		Print(L"Failed to open file %d\n", name);
+		Print(L"Failed to open file %s\n", name);
 		return status;
 	}
 

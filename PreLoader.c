@@ -53,6 +53,10 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	/* install statically compiled in hashes */
 	security_protocol_set_hashes(_tmp_tmp_hash, _tmp_tmp_hash_len);
 
+	/* Check for H key being pressed */
+	if (console_check_for_keystroke('H'))
+		goto start_hashtool;
+
 	status = execute(image, loader);
 
 	if (status == EFI_SUCCESS)
@@ -79,6 +83,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		});
 
 	for (;;) {
+	start_hashtool:
 		status = execute(image, hashtool);
 
 		if (status != EFI_SUCCESS) {

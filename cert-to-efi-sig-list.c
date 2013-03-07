@@ -16,6 +16,7 @@
 #include <openssl/pem.h>
 #include <openssl/err.h>
 
+#include <guid.h>
 #include <variables.h>
 #include <version.h>
 

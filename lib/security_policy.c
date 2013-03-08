@@ -335,11 +335,19 @@ security_policy_install(void)
 		es2fa = security2_protocol->FileAuthentication;
 		security2_protocol->FileAuthentication = 
 			thunk_security2_policy_authentication;
+		/* check for security policy in write protected memory */
+		if (security2_protocol->FileAuthentication
+		    !=  thunk_security2_policy_authentication)
+			return EFI_ACCESS_DENIED;
 	}
 
 	esfas = security_protocol->FileAuthenticationState;
 	security_protocol->FileAuthenticationState =
 		thunk_security_policy_authentication;
+	/* check for security policy in write protected memory */
+	if (security_protocol->FileAuthenticationState
+	    !=  thunk_security_policy_authentication)
+		return EFI_ACCESS_DENIED;
 
 	return EFI_SUCCESS;
 }

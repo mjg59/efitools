@@ -3,7 +3,10 @@ efitools - useful tools for manipulating UEFI secure boot platforms
 (c) 2012 James Bottomley
 
 All of these programs are made available under version 2 of the GNU General
-Public Licence.
+Public Licence.  The library routines in lib/ are made available under the GNU
+Lesser General Public Licence version 2.1.  Additionally for linking the
+programme files with openSSL, there is an additional permission that
+compiling, linking, and/or using OpenSSL is allowed.
 
 		    GNU GENERAL PUBLIC LICENSE
 		       Version 2, June 1991

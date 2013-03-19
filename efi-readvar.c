@@ -115,9 +115,9 @@ parse_db(const char *name, uint8_t *data, uint32_t len, int sig, int entry)
 int
 main(int argc, char *argv[])
 {
-	char *variables[] = { "PK", "KEK", "db", "dbx" };
+  char *variables[] = { "PK", "KEK", "db", "dbx" , "MokList" };
 	char *progname = argv[0], *var = NULL, *file = NULL;
-	EFI_GUID *owners[] = { &GV_GUID, &GV_GUID, &SIG_DB, &SIG_DB };
+	EFI_GUID *owners[] = { &GV_GUID, &GV_GUID, &SIG_DB, &SIG_DB, &MOK_OWNER };
 	int i, found = 0, sig = -1, entry = -1, fd;
 
 	while (argc > 1 && argv[1][0] == '-') {

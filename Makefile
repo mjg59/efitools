@@ -62,7 +62,7 @@ DB.auth: DB.esl KEK.crt sign-efi-sig-list
 
 hashlist.h: HashTool.hash
 	cat $^ > /tmp/tmp.hash
-	xxd -i /tmp/tmp.hash > $@
+	./xxdi.pl /tmp/tmp.hash > $@
 	rm -f /tmp/tmp.hash
 
 

@@ -38,7 +38,7 @@ endif
 	nm -D $@ | grep ' U ' && exit 1 || exit 0
 
 %.h: %.auth
-	xxd -i $< > $@
+	./xxdi.pl $< > $@
 
 %.hash: %.efi hash-to-efi-sig-list
 	./hash-to-efi-sig-list $< $@

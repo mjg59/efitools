@@ -68,8 +68,8 @@ kernel_variable_init(void)
 
 		sscanf(ptr, "%*s on %s type %s %*s\n%n", path, type, &count);
 		ptr += count;
-		if (strcmp(type, "efivarfs") != 0)
-			continue;
+		if (strcmp(type, "efivarfs") == 0)
+			break;
 	}
 	if (strcmp(type, "efivarfs") != 0) {
 		fprintf(stderr, "No efivarfs filesystem is mounted\n");

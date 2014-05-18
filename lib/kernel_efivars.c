@@ -66,7 +66,7 @@ kernel_variable_init(void)
 	while (ptr < buf + st.st_size) {
 		int count;
 
-		sscanf(ptr, "%*s on %s type %s %*s\n%n", path, type, &count);
+		sscanf(ptr, "%*s on %s type %s %*[^\n]\n%n", path, type, &count);
 		ptr += count;
 		if (strcmp(type, "efivarfs") == 0)
 			break;

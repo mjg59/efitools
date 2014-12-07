@@ -253,10 +253,10 @@ main(int argc, char *argv[])
 
 		BIO *bio_data = BIO_new_mem_buf(signbuf, signbuflen);
 	
-		p7 = PKCS7_sign(NULL, NULL, NULL, bio_data, PKCS7_BINARY|PKCS7_PARTIAL|PKCS7_DETACHED);
+		p7 = PKCS7_sign(NULL, NULL, NULL, bio_data, PKCS7_BINARY|PKCS7_PARTIAL|PKCS7_DETACHED|PKCS7_NOATTR);
 		const EVP_MD *md = EVP_get_digestbyname("SHA256");
-		PKCS7_sign_add_signer(p7, cert, pkey, md, PKCS7_BINARY|PKCS7_DETACHED);
-		PKCS7_final(p7, bio_data, PKCS7_BINARY|PKCS7_DETACHED);
+		PKCS7_sign_add_signer(p7, cert, pkey, md, PKCS7_BINARY|PKCS7_DETACHED|PKCS7_NOATTR);
+		PKCS7_final(p7, bio_data, PKCS7_BINARY|PKCS7_DETACHED|PKCS7_NOATTR);
 
 
 		sigsize = i2d_PKCS7(p7, NULL);
@@ -276,6 +276,7 @@ main(int argc, char *argv[])
 		sigbuf = var_auth->AuthInfo.CertData;
 	} else {
 		sigbuf = var_auth->AuthInfo.CertData;
+		printf("Signature at: %d\n", sigbuf - (unsigned char *)var_auth);
 		i2d_PKCS7(p7, &sigbuf);
 		ERR_print_errors_fp(stdout);
 	}

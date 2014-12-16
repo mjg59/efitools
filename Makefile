@@ -9,7 +9,9 @@ include Make.rules
 
 EFISIGNED = $(patsubst %.efi,%-signed.efi,$(EFIFILES))
 
-all: $(EFISIGNED) $(BINARIES) $(MANPAGES) noPK.auth
+all: $(EFISIGNED) $(BINARIES) $(MANPAGES) noPK.auth KEK-update.auth \
+	DB-update.auth
+
 
 install: all
 	$(INSTALL) -m 755 -d $(MANDIR)
@@ -59,6 +61,12 @@ KEK.auth: KEK.esl PK.crt sign-efi-sig-list
 
 DB.auth: DB.esl KEK.crt sign-efi-sig-list
 	./sign-efi-sig-list -c KEK.crt -k KEK.key db $< $@
+
+KEK-update.auth: KEK.esl PK.crt sign-efi-sig-list
+	./sign-efi-sig-list -a -c PK.crt -k PK.key KEK $< $@
+
+DB-update.auth: DB.esl KEK.crt sign-efi-sig-list
+	./sign-efi-sig-list -a -c KEK.crt -k KEK.key db $< $@
 
 hashlist.h: HashTool.hash
 	cat $^ > /tmp/tmp.hash

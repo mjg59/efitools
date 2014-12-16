@@ -678,6 +678,46 @@ save_keys(void)
 	console_alertbox(title);
 }
 
+static void
+execute_binary()
+{
+	CHAR16 *bin_name;
+	EFI_HANDLE h = NULL;
+	EFI_HANDLE ih;
+	EFI_DEVICE_PATH *devpath;
+	EFI_STATUS status;
+
+	simple_file_selector(&h, (CHAR16 *[]) {
+			L"Select Binary to Execute",
+			L"",
+			NULL
+		}, L"\\",
+		NULL, &bin_name);
+	if (!bin_name) {
+		/* user pressed ESC */
+		return;
+	}
+
+	/* the execute() call is designed to construct handles from
+	 * local resources on the image.  We have a handle and a full
+	 * path name, so we follow proper process here */
+
+	devpath = FileDevicePath(h, bin_name);
+
+	status = uefi_call_wrapper(BS->LoadImage, 6, FALSE, im,
+				   devpath, NULL, 0, &ih);
+	if (status != EFI_SUCCESS) {
+		console_error(L"Image failed to load", status);
+		return;
+	}
+
+	status = uefi_call_wrapper(BS->StartImage, 3, ih, NULL, NULL);
+	uefi_call_wrapper(BS->UnloadImage, 1, ih);
+
+	if (status != EFI_SUCCESS)
+		console_error(L"Execution returned error", status);
+}
+
 EFI_STATUS
 efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 {
@@ -710,7 +750,13 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 		StrCat(line3, SecureBoot ? L"on" : L"off");
 		title =  (CHAR16 *[]){L"KeyTool main menu", L"", line2, line3, NULL };
 
-		option = console_select(title, (CHAR16 *[]){ L"Save Keys", L"Edit Keys", L"Exit", NULL }, option);
+		option = console_select(title, (CHAR16 *[]){ 
+				L"Save Keys",
+				L"Edit Keys",
+				L"Execute Binary",
+				L"Exit",
+				NULL },
+			option);
 
 		switch (option) {
 		case 0:
@@ -720,6 +766,9 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 			select_key();
 			break;
 		case 2:
+			execute_binary();
+			break;
+		case 3:
 			/* exit from programme */
 			return EFI_SUCCESS;
 		default:

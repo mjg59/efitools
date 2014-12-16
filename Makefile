@@ -98,6 +98,7 @@ efi-updatevar: efi-updatevar.o lib/lib.a
 
 clean:
 	rm -f PK.* KEK.* DB.* $(EFIFILES) $(EFISIGNED) $(BINARIES) *.o *.so
+	rm -f noPK.*
 	rm -f doc/*.1
 	$(MAKE) -C lib clean
 

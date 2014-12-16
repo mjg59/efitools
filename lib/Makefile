@@ -10,5 +10,7 @@ lib-efi.a: $(EFILIBFILES)
 
 clean:
 	rm -f lib.a
+	rm -f lib-efi.a
 	rm -f $(LIBFILES)
+	rm -f $(EFILIBFILES)
 

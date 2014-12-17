@@ -12,7 +12,9 @@ include Make.rules
 EFISIGNED = $(patsubst %.efi,%-signed.efi,$(EFIFILES))
 
 all: $(EFISIGNED) $(BINARIES) $(MANPAGES) noPK.auth KEK-update.auth \
-	DB-update.auth ms-uefi-update.auth
+	DB-update.auth ms-uefi-update.auth DB-pkupdate.auth \
+	ms-uefi-pkupdate.auth DB-blacklist.auth ms-uefi-blacklist.auth \
+	DB-pkblacklist.auth ms-uefi-pkblacklist.auth
 
 
 install: all
@@ -55,27 +57,8 @@ noPK.esl:
 noPK.auth: noPK.esl PK.crt sign-efi-sig-list
 	./sign-efi-sig-list -t "$(shell date --date='1 second' +'%Y-%m-%d %H:%M:%S')" -c PK.crt -k PK.key PK $< $@
 
-PK.auth: PK.esl PK.crt sign-efi-sig-list
-	./sign-efi-sig-list -c PK.crt -k PK.key PK $< $@
-
-KEK.auth: KEK.esl PK.crt sign-efi-sig-list
-	./sign-efi-sig-list -c PK.crt -k PK.key KEK $< $@
-
-DB.auth: DB.esl KEK.crt sign-efi-sig-list
-	./sign-efi-sig-list -c KEK.crt -k KEK.key db $< $@
-
-KEK-update.auth: KEK.esl PK.crt sign-efi-sig-list
-	./sign-efi-sig-list -a -c PK.crt -k PK.key KEK $< $@
-
-DB-update.auth: DB.esl KEK.crt sign-efi-sig-list
-	./sign-efi-sig-list -a -c KEK.crt -k KEK.key db $< $@
-
 ms-uefi.esl: ms-uefi.crt cert-to-efi-sig-list
 	./cert-to-efi-sig-list -g $(MSGUID) $< $@
-
-
-ms-uefi-update.auth: ms-uefi.esl KEK.crt sign-efi-sig-list
-	./sign-efi-sig-list -a -c KEK.crt -k KEK.key db $< $@
 
 hashlist.h: HashTool.hash
 	cat $^ > /tmp/tmp.hash

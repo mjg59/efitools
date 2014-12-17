@@ -46,6 +46,24 @@ endif
 %.esl: %.crt cert-to-efi-sig-list
 	./cert-to-efi-sig-list -g $(MYGUID) $< $@
 
+getcert = $(shell if [ "$(1)" = "PK" -o "$(1)" = "KEK" ]; then echo "-c PK.crt -k PK.key"; else echo "-c KEK.crt -k KEK.key"; fi)
+getvar = $(shell if [ "$(1)" = "PK" -o "$(1)" = "KEK" ]; then echo $(1); else echo db; fi)
+
+%.auth: %.esl PK.crt KEK.crt sign-efi-sig-list
+	./sign-efi-sig-list $(call getcert,$*) $(call getvar,$*) $< $@
+
+%-update.auth: %.esl PK.crt KEK.crt sign-efi-sig-list
+	./sign-efi-sig-list -a $(call getcert,$*) $(call getvar,$*) $< $@
+
+%-pkupdate.auth: %.esl PK.crt sign-efi-sig-list
+	./sign-efi-sig-list -a -c PK.crt -k PK.key $(call getvar,$*) $< $@
+
+%-blacklist.auth: %.esl KEK.crt sign-efi-sig-list
+	./sign-efi-sig-list -a -c KEK.crt -k KEK.key dbx $< $@
+
+%-pkblacklist.auth: %.esl PK.crt sign-efi-sig-list
+	./sign-efi-sig-list -a -c PK.crt -k PK.key dbx $< $@
+
 %.o: %.c
 	$(CC) $(INCDIR) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 

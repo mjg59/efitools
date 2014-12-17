@@ -53,7 +53,7 @@ noPK.esl:
 	> noPK.esl
 
 noPK.auth: noPK.esl PK.crt sign-efi-sig-list
-	./sign-efi-sig-list -c PK.crt -k PK.key PK $< $@
+	./sign-efi-sig-list -t "$(shell date --date='1 second' +'%Y-%m-%d %H:%M:%S')" -c PK.crt -k PK.key PK $< $@
 
 PK.auth: PK.esl PK.crt sign-efi-sig-list
 	./sign-efi-sig-list -c PK.crt -k PK.key PK $< $@

@@ -151,22 +151,34 @@ main(int argc, char *argv[])
 	time_t t;
 	struct tm *tm, tms;
 
+	memset(&tms, 0, sizeof(tms));
+
 	if (timestampstr) {
-		strptime(timestampstr, "%c", &tms);
+		strptime(timestampstr, "%Y-%m-%d %H:%M:%S", &tms);
+		tm = &tms;
+		/* timestamp.Year is from 0 not 1900 as tm year is */
+		tm->tm_year += 1900;
+	} else if (attributes & EFI_VARIABLE_APPEND_WRITE) {
+		/* for append update timestamp should be zero */
+		memset(&tms, 0, sizeof(tms));
 		tm = &tms;
 	} else {
 		time(&t);
-		tm = gmtime(&t);
+		tm = localtime(&t);
+		/* timestamp.Year is from 0 not 1900 as tm year is */
+		tm->tm_year += 1900;
 	}
 
-	/* FIXME: currently timestamp is one year into future because of
-	 * the way we set up the secure environment  */
-	timestamp.Year = tm->tm_year + 1900 + 1;
+	timestamp.Year = tm->tm_year;
 	timestamp.Month = tm->tm_mon;
 	timestamp.Day = tm->tm_mday;
 	timestamp.Hour = tm->tm_hour;
 	timestamp.Minute = tm->tm_min;
 	timestamp.Second = tm->tm_sec;
+
+	printf("Timestamp is %d-%d-%d %02d:%02d:%02d\n", timestamp.Year,
+	       timestamp.Month, timestamp.Day, timestamp.Hour, timestamp.Minute,
+	       timestamp.Second);
 
 	/* Warning: don't use any glibc wchar functions.  We're building
 	 * with -fshort-wchar which breaks the glibc ABI */
@@ -276,7 +288,7 @@ main(int argc, char *argv[])
 		sigbuf = var_auth->AuthInfo.CertData;
 	} else {
 		sigbuf = var_auth->AuthInfo.CertData;
-		printf("Signature at: %d\n", sigbuf - (unsigned char *)var_auth);
+		printf("Signature at: %ld\n", sigbuf - (unsigned char *)var_auth);
 		i2d_PKCS7(p7, &sigbuf);
 		ERR_print_errors_fp(stdout);
 	}

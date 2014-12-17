@@ -3,6 +3,8 @@ EFIFILES = HelloWorld.efi LockDown.efi Loader.efi ReadVars.efi UpdateVars.efi \
 BINARIES = cert-to-efi-sig-list sig-list-to-certs sign-efi-sig-list \
 	hash-to-efi-sig-list efi-readvar efi-updatevar
 
+MSGUID = 77FA9ABD-0359-4D32-BD60-28F4E78F784B
+
 export TOPDIR	:= $(shell pwd)/
 
 include Make.rules
@@ -10,7 +12,7 @@ include Make.rules
 EFISIGNED = $(patsubst %.efi,%-signed.efi,$(EFIFILES))
 
 all: $(EFISIGNED) $(BINARIES) $(MANPAGES) noPK.auth KEK-update.auth \
-	DB-update.auth
+	DB-update.auth ms-uefi-update.auth
 
 
 install: all
@@ -66,6 +68,13 @@ KEK-update.auth: KEK.esl PK.crt sign-efi-sig-list
 	./sign-efi-sig-list -a -c PK.crt -k PK.key KEK $< $@
 
 DB-update.auth: DB.esl KEK.crt sign-efi-sig-list
+	./sign-efi-sig-list -a -c KEK.crt -k KEK.key db $< $@
+
+ms-uefi.esl: ms-uefi.crt cert-to-efi-sig-list
+	./cert-to-efi-sig-list -g $(MSGUID) $< $@
+
+
+ms-uefi-update.auth: ms-uefi.esl KEK.crt sign-efi-sig-list
 	./sign-efi-sig-list -a -c KEK.crt -k KEK.key db $< $@
 
 hashlist.h: HashTool.hash

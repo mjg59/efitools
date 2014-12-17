@@ -140,7 +140,6 @@ console_print_box_at(CHAR16 *str_arr[], int highlight, int start_col, int start_
 		/* from top */
 		start = start_row + offset;
 		
-
 	for (i = start_row + 1; i < size_rows + start_row - 1; i++) {
 		int line = i - start;
 
@@ -209,6 +208,7 @@ console_select(CHAR16 *title[], CHAR16* selectors[], int start)
 	int selector_max_cols = 0;
 	int i, offs_col, offs_row, size_cols, size_rows, lines;
 	int selector_offset;
+	int title_lines = count_lines(title);
 	UINTN cols, rows;
 
 	uefi_call_wrapper(co->QueryMode, 4, co, co->Mode->Mode, &cols, &rows);
@@ -228,13 +228,12 @@ console_select(CHAR16 *title[], CHAR16* selectors[], int start)
 	offs_col = - selector_max_cols - 4;
 	size_cols = selector_max_cols + 4;
 
-	if (selector_lines > rows - 10) {
-		int title_lines = count_lines(title);
-		offs_row =  title_lines + 1;
-		size_rows = rows - 3 - title_lines;
+	if (selector_lines > rows - 6 - title_lines) {
+		offs_row =  title_lines + 2;
+		size_rows = rows - 4 - title_lines;
 		lines = size_rows - 2;
 	} else {
-		offs_row = - selector_lines - 4;
+		offs_row = (rows + title_lines - 1 - selector_lines)/2;
 		size_rows = selector_lines + 2;
 		lines = selector_lines;
 	}

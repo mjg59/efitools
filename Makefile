@@ -14,7 +14,8 @@ EFISIGNED = $(patsubst %.efi,%-signed.efi,$(EFIFILES))
 all: $(EFISIGNED) $(BINARIES) $(MANPAGES) noPK.auth KEK-update.auth \
 	DB-update.auth ms-uefi-update.auth DB-pkupdate.auth \
 	ms-uefi-pkupdate.auth DB-blacklist.auth ms-uefi-blacklist.auth \
-	DB-pkblacklist.auth ms-uefi-pkblacklist.auth
+	DB-pkblacklist.auth ms-uefi-pkblacklist.auth \
+	ms-kek-pkupdate.auth
 
 
 install: all
@@ -57,7 +58,7 @@ noPK.esl:
 noPK.auth: noPK.esl PK.crt sign-efi-sig-list
 	./sign-efi-sig-list -t "$(shell date --date='1 second' +'%Y-%m-%d %H:%M:%S')" -c PK.crt -k PK.key PK $< $@
 
-ms-uefi.esl: ms-uefi.crt cert-to-efi-sig-list
+ms-%.esl: ms-%.crt cert-to-efi-sig-list
 	./cert-to-efi-sig-list -g $(MSGUID) $< $@
 
 hashlist.h: HashTool.hash

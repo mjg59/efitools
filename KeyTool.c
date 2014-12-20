@@ -444,28 +444,15 @@ enroll_hash(int key)
 static void
 save_key_internal(int key, EFI_HANDLE vol, CHAR16 *error)
 {
-	CHAR16 *variables[] = { 
-		[KEY_PK] = L"PK",
-		[KEY_KEK] = L"KEK",
-		[KEY_DB] = L"db",
-		[KEY_DBX] = L"dbx",
-		[KEY_MOK] = L"MokList"
-	};
-	EFI_GUID owners[] = { 
-		[KEY_PK] = GV_GUID,
-		[KEY_KEK] = GV_GUID,
-		[KEY_DB] = SIG_DB,
-		[KEY_DBX] = SIG_DB,
-		[KEY_MOK] = MOK_OWNER
-	};
 	EFI_STATUS status;
 	EFI_FILE *file;
 	UINT8 *data;
 	UINTN len;
 	CHAR16 file_name[512];
 
-	StrCpy(error, variables[key]);
-	status = get_variable(variables[key], &data, &len, owners[key]);
+	StrCpy(error, keyinfo[key].name);
+	status = get_variable(keyinfo[key].name, &data, &len,
+			      *keyinfo[key].guid);
 	if (status != EFI_SUCCESS) {
 		if (status == EFI_NOT_FOUND)
 			StrCat(error, L": Variable has no entries");
@@ -475,7 +462,7 @@ save_key_internal(int key, EFI_HANDLE vol, CHAR16 *error)
 		return;
 	}
 	StrCpy(file_name, L"\\");
-	StrCat(file_name, variables[key]);
+	StrCat(file_name, keyinfo[key].name);
 	StrCat(file_name, L".esl");
 	status = simple_file_open(vol, file_name, &file,
 				  EFI_FILE_MODE_READ

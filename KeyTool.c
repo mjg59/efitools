@@ -16,7 +16,7 @@
 #include <efiauthenticated.h>
 
 static EFI_HANDLE im;
-static UINT8 SetupMode, SecureBoot;
+static UINT8 SetupMode, SecureBoot, display_dbt;
 
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
 
@@ -25,6 +25,7 @@ enum {
 	KEY_KEK,
 	KEY_DB,
 	KEY_DBX,
+	KEY_DBT,
 	KEY_MOK,
 	MAX_KEYS
 };
@@ -63,6 +64,13 @@ static struct {
 		.guid = &SIG_DB,
 		.authenticated = 1,
 		.hash = 1,
+	},
+	[KEY_DBT] = {
+		.name = L"dbt",
+		.text = L"The Timestamp Signatures Database (dbt)",
+		.guid = &SIG_DB,
+		.authenticated = 1,
+		.hash = 0,
 	},
 	[KEY_MOK] = {
 		.name = L"MokList",
@@ -611,12 +619,17 @@ manipulate_key(int key)
 static void
 select_key(void)
 {
-	int i;
+	int i, j;
+	int keymap[keyinfo_size + 1];
 	CHAR16 *keys[keyinfo_size + 1];
 
-	for (i = 0; i < keyinfo_size; i++)
-		keys[i] = keyinfo[i].text;
-	keys[i] = NULL;
+	for (i = 0, j = 0; i < keyinfo_size; i++) {
+		if (i == KEY_DBT && !display_dbt)
+			continue;
+		keys[j] = keyinfo[i].text;
+		keymap[j++] = i;
+	}
+	keys[j] = NULL;
 
 	i = 0;
 
@@ -624,7 +637,7 @@ select_key(void)
 		i = console_select( (CHAR16 *[]){ L"Select Key to Manipulate", NULL }, keys, i);
 		if (i == -1)
 			break;
-		manipulate_key(i);
+		manipulate_key(keymap[i]);
 	}
 }
 
@@ -657,6 +670,8 @@ save_keys(void)
 	title[t_c++] = L"";
 
 	for (i = 0; i < MAX_KEYS; i++) {
+		if (i == KEY_DBT && !display_dbt)
+			continue;
 		save_key_internal(i, vol, &buf[b_c]);
 		title[t_c++] = &buf[b_c];
 		b_c += StrLen(&buf[b_c]) + 1;
@@ -715,6 +730,9 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	im = image;
 
 	InitializeLib(image, systab);
+
+	if (GetOSIndications() & EFI_OS_INDICATIONS_TIMESTAMP_REVOCATION)
+		display_dbt = 1;
 
 	efi_status = uefi_call_wrapper(RT->GetVariable, 5, L"SetupMode", &GV_GUID, NULL, &DataSize, &SetupMode);
 

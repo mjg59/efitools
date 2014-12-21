@@ -16,8 +16,6 @@
 #include <shell.h>
 #include "efiauthenticated.h"
 
-#define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
-
 EFI_STATUS
 efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 {
@@ -28,11 +26,18 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	void *buf;
 	UINTN size, options = 0;
 	EFI_GUID *owner;
-	CHAR16 *variables[] = { L"PK", L"KEK", L"db", L"dbx", L"MokList" };
-	EFI_GUID *owners[] = { &GV_GUID, &GV_GUID, &SIG_DB, &SIG_DB,
-			       &MOK_OWNER };
+	CHAR16 **variables;
+	EFI_GUID **owners;
 
 	InitializeLib(image, systab);
+
+	if (GetOSIndications() & EFI_OS_INDICATIONS_TIMESTAMP_REVOCATION) {
+		variables = (CHAR16 *[]){ L"PK", L"KEK", L"db", L"dbx", L"dbt", L"MokList" , NULL};
+		owners = (EFI_GUID *[]){ &GV_GUID, &GV_GUID, &SIG_DB, &SIG_DB, &SIG_DB, &MOK_OWNER };
+	} else {
+		variables = (CHAR16 *[]){ L"PK", L"KEK", L"db", L"dbx", L"MokList" , NULL};
+		owners = (EFI_GUID *[]){ &GV_GUID, &GV_GUID, &SIG_DB, &SIG_DB, &MOK_OWNER };
+	}
 
 	status = argsplit(image, &argc, &ARGV);
 
@@ -74,15 +79,15 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	var = ARGV[1];
 	name = ARGV[2];
 
-	for(i = 0; i < ARRAY_SIZE(variables); i++) {
+	for(i = 0; variables[i] != NULL; i++) {
 		if (StrCmp(var, variables[i]) == 0) {
 			owner = owners[i];
 			break;
 		}
 	}
-	if (i == ARRAY_SIZE(variables)) {
+	if (variables[i] == NULL) {
 		Print(L"Invalid Variable %s\nVariable must be one of: ", var);
-		for (i = 0; i < ARRAY_SIZE(variables); i++)
+		for (i = 0; variables[i] != NULL; i++)
 			Print(L"%s ", variables[i]);
 		Print(L"\n");
 		return EFI_INVALID_PARAMETER;

@@ -16,8 +16,6 @@
 #include <sha256.h>
 #include "efiauthenticated.h"
 
-#define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
-
 void
 parse_db(UINT8 *data, UINTN len, EFI_HANDLE image, CHAR16 *name, int save_file)
 {
@@ -101,14 +99,22 @@ EFI_STATUS
 efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 {
 	EFI_STATUS status;
-	CHAR16 *variables[] = { L"PK", L"KEK", L"db", L"dbx", L"MokList" };
-	EFI_GUID owners[] = { GV_GUID, GV_GUID, SIG_DB, SIG_DB, MOK_OWNER };
+	CHAR16 **variables;
+	EFI_GUID *owners;
 	CHAR16 **ARGV, *progname;
 	UINT8 *data;
 	UINTN len;
 	int i, argc, save_keys = 0, no_print = 0;
 
 	InitializeLib(image, systab);
+
+	if (GetOSIndications() & EFI_OS_INDICATIONS_TIMESTAMP_REVOCATION) {
+		variables = (CHAR16 *[]){ L"PK", L"KEK", L"db", L"dbx", L"dbt", L"MokList" , NULL};
+		owners = (EFI_GUID []){ GV_GUID, GV_GUID, SIG_DB, SIG_DB, SIG_DB, MOK_OWNER };
+	} else {
+		variables = (CHAR16 *[]){ L"PK", L"KEK", L"db", L"dbx", L"MokList" , NULL};
+		owners = (EFI_GUID []){ GV_GUID, GV_GUID, SIG_DB, SIG_DB, MOK_OWNER };
+	}
 
 	status = argsplit(image, &argc, &ARGV);
 
@@ -139,7 +145,7 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	}
 
 	if (argc == 1) {
-		for (i = 0; i < ARRAY_SIZE(owners); i++) {
+		for (i = 0; variables[i] != NULL; i++) {
 			status = get_variable(variables[i], &data, &len, owners[i]);
 			if (status == EFI_NOT_FOUND) {
 				Print(L"Variable %s has no entries\n", variables[i]);
@@ -154,14 +160,14 @@ efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
 	} else {
 		CHAR16 *var = ARGV[1];
 		
-		for(i = 0; i < ARRAY_SIZE(variables); i++) {
+		for(i = 0; variables[i] != NULL; i++) {
 			if (StrCmp(var, variables[i]) == 0) {
 				break;
 			}
 		}
-		if (i == ARRAY_SIZE(variables)) {
+		if (variables[i]== NULL) {
 			Print(L"Invalid Variable %s\nVariable must be one of: ", var);
-			for (i = 0; i < ARRAY_SIZE(variables); i++)
+			for (i = 0; variables[i] != NULL; i++)
 				Print(L"%s ", variables[i]);
 			Print(L"\n");
 			return EFI_INVALID_PARAMETER;

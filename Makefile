@@ -1,7 +1,7 @@
 EFIFILES = HelloWorld.efi LockDown.efi Loader.efi ReadVars.efi UpdateVars.efi \
 	KeyTool.efi HashTool.efi PreLoader.efi SetNull.efi
 BINARIES = cert-to-efi-sig-list sig-list-to-certs sign-efi-sig-list \
-	hash-to-efi-sig-list efi-readvar efi-updatevar
+	hash-to-efi-sig-list efi-readvar efi-updatevar cert-to-efi-hash-list
 
 MSGUID = 77FA9ABD-0359-4D32-BD60-28F4E78F784B
 
@@ -84,6 +84,9 @@ sign-efi-sig-list: sign-efi-sig-list.o lib/lib.a
 
 hash-to-efi-sig-list: hash-to-efi-sig-list.o lib/lib.a
 	$(CC) -o $@ $< lib/lib.a
+
+cert-to-efi-hash-list: cert-to-efi-hash-list.o lib/lib.a
+	$(CC) -o $@ $< -lcrypto lib/lib.a
 
 efi-keytool: efi-keytool.o lib/lib.a
 	$(CC) -o $@ $< lib/lib.a

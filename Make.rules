@@ -43,6 +43,9 @@ endif
 %.hash: %.efi hash-to-efi-sig-list
 	./hash-to-efi-sig-list $< $@
 
+%-blacklist.esl: %.crt cert-to-efi-hash-list
+	./cert-to-efi-hash-list $< $@
+
 %.esl: %.crt cert-to-efi-sig-list
 	./cert-to-efi-sig-list -g $(MYGUID) $< $@
 
@@ -58,10 +61,10 @@ getvar = $(shell if [ "$(1)" = "PK" -o "$(1)" = "KEK" ]; then echo $(1); else ec
 %-pkupdate.auth: %.esl PK.crt sign-efi-sig-list
 	./sign-efi-sig-list -a -c PK.crt -k PK.key $(call getvar,$*) $< $@
 
-%-blacklist.auth: %.esl KEK.crt sign-efi-sig-list
+%-blacklist.auth: %-blacklist.esl KEK.crt sign-efi-sig-list
 	./sign-efi-sig-list -a -c KEK.crt -k KEK.key dbx $< $@
 
-%-pkblacklist.auth: %.esl PK.crt sign-efi-sig-list
+%-pkblacklist.auth: %-blacklist.esl PK.crt sign-efi-sig-list
 	./sign-efi-sig-list -a -c PK.crt -k PK.key dbx $< $@
 
 %.o: %.c

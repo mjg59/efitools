@@ -7,6 +7,11 @@
 ///
 /// The format of a signature database. 
 ///
+
+typedef UINT8  EFI_SHA256_HASH[32];
+typedef UINT8  EFI_SHA384_HASH[48];
+typedef UINT8  EFI_SHA512_HASH[64];
+
 #pragma pack(1)
 
 typedef struct {
@@ -47,6 +52,39 @@ typedef struct {
   ///
 } EFI_SIGNATURE_LIST;
 
+typedef struct {
+  ///
+  /// The SHA256 hash of an X.509 certificate's To-Be-Signed contents.
+  ///
+  EFI_SHA256_HASH     ToBeSignedHash;
+  ///
+  /// The time that the certificate shall be considered to be revoked.
+  ///
+  EFI_TIME            TimeOfRevocation;
+} EFI_CERT_X509_SHA256;
+
+typedef struct {
+  ///
+  /// The SHA384 hash of an X.509 certificate's To-Be-Signed contents.
+  ///
+  EFI_SHA384_HASH     ToBeSignedHash;
+  ///
+  /// The time that the certificate shall be considered to be revoked.
+  ///
+  EFI_TIME            TimeOfRevocation;
+} EFI_CERT_X509_SHA384;
+
+typedef struct {
+  ///
+  /// The SHA512 hash of an X.509 certificate's To-Be-Signed contents.
+  ///
+  EFI_SHA512_HASH     ToBeSignedHash;
+  ///
+  /// The time that the certificate shall be considered to be revoked.
+  ///
+  EFI_TIME            TimeOfRevocation;
+} EFI_CERT_X509_SHA512;
+
 #pragma pack()
 
 //
@@ -71,6 +109,18 @@ typedef struct {
   (EFI_GUID){								\
     0x4aafd29d, 0x68df, 0x49ee, {0x8a, 0xa9, 0x34, 0x7d, 0x37, 0x56, 0x65, 0xa7} \
   }
+
+#define EFI_CERT_X509_SHA256_GUID \
+	(EFI_GUID) { 0x3bd2a492, 0x96c0, 0x4079,		\
+			{ 0xb4, 0x20, 0xfc, 0xf9, 0x8e, 0xf1, 0x03, 0xed } }
+
+#define EFI_CERT_X509_SHA384_GUID \
+	(EFI_GUID) { 0x7076876e, 0x80c2, 0x4ee6,		\
+			{ 0xaa, 0xd2, 0x28, 0xb3, 0x49, 0xa6, 0x86, 0x5b } }
+
+#define EFI_CERT_X509_SHA512_GUID \
+	(EFI_GUID) { 0x446dbf63, 0x2502, 0x4cda,		\
+			{ 0xbc, 0xfa, 0x24, 0x65, 0xd2, 0xb0, 0xfe, 0x9d } }
 
 ///
 /// WIN_CERTIFICATE_UEFI_GUID.CertType

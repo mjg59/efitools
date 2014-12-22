@@ -23,6 +23,7 @@ hashlist.h
 *.cab
 hash-to-efi-sig-list
 cert-to-efi-sig-list
+cert-to-efi-hash-list
 sig-list-to-certs
 sign-efi-sig-list
 efi-keytool

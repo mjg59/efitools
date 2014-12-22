@@ -5,17 +5,25 @@ BINARIES = cert-to-efi-sig-list sig-list-to-certs sign-efi-sig-list \
 
 MSGUID = 77FA9ABD-0359-4D32-BD60-28F4E78F784B
 
+KEYS = PK KEK DB
+EXTRAKEYS = DB1 DB2
+EXTERNALKEYS = ms-uefi ms-kek
+
+ALLKEYS = $(KEYS) $(EXTRAKEYS) $(EXTERNALKEYS)
+
+KEYAUTH = $(ALLKEYS:=.auth)
+KEYUPDATEAUTH = $(ALLKEYS:=-update.auth) $(ALLKEYS:=-pkupdate.auth)
+KEYBLACKLISTAUTH = $(ALLKEYS:=-blacklist.auth)
+KEYHASHBLACKLISTAUTH = $(ALLKEYS:=-hash-blacklist.auth)
+
 export TOPDIR	:= $(shell pwd)/
 
 include Make.rules
 
 EFISIGNED = $(patsubst %.efi,%-signed.efi,$(EFIFILES))
 
-all: $(EFISIGNED) $(BINARIES) $(MANPAGES) noPK.auth KEK-update.auth \
-	DB-update.auth ms-uefi-update.auth DB-pkupdate.auth \
-	ms-uefi-pkupdate.auth DB-blacklist.auth ms-uefi-blacklist.auth \
-	DB-pkblacklist.auth ms-uefi-pkblacklist.auth \
-	ms-kek-pkupdate.auth
+all: $(EFISIGNED) $(BINARIES) $(MANPAGES) noPK.auth $(KEYAUTH) \
+	$(KEYUPDATEAUTH) $(KEYBLACKLISTAUTH) $(KEYHASHBLACKLISTAUTH)
 
 
 install: all

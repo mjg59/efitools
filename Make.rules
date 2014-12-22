@@ -44,6 +44,9 @@ endif
 	./hash-to-efi-sig-list $< $@
 
 %-blacklist.esl: %.crt cert-to-efi-hash-list
+	./cert-to-efi-sig-list $< $@
+
+%-hash-blacklist.esl: %.crt cert-to-efi-hash-list
 	./cert-to-efi-hash-list $< $@
 
 %.esl: %.crt cert-to-efi-sig-list

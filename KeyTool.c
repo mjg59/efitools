@@ -95,6 +95,15 @@ struct {
 	{ .guid = &EFI_CERT_SHA256_GUID,
 	  .name = L"SHA256 signature",
 	},
+	{ .guid = &EFI_CERT_X509_SHA256_GUID,
+	  .name = L"X509 SHA256 signature",
+	},
+	{ .guid = &EFI_CERT_X509_SHA384_GUID,
+	  .name = L"X509 SHA384 signature",
+	},
+	{ .guid = &EFI_CERT_X509_SHA384_GUID,
+	  .name = L"X509 SHA256 signature",
+	},
 };
 static const int signatures_size = ARRAY_SIZE(signatures);
 
@@ -298,6 +307,17 @@ show_key(int key, int offset, void *Data, int DataSize)
 		title[++c] = L"Issuer:";
 		for (i = 0; i < sp; i++)
 			title[++c] = tmpbuf1[i];
+	} else if (CompareGuid(&CertList->SignatureType, &EFI_CERT_X509_SHA256_GUID) == 0) {
+		EFI_CERT_X509_SHA256 *tmp = (void *)Cert->SignatureData;
+		StrCpy(str2, L"Hash: ");
+		sha256_StrCat_hash(str2, Cert->SignatureData);
+		title[++c] = str2;
+		EFI_TIME timestamp = tmp->TimeOfRevocation;
+		SPrint(buf, sizeof(buf),
+		       L"Revocation Timestamp: %d-%d-%d %02d:%02d:%02d\n",
+		       timestamp.Year, timestamp.Month, timestamp.Day,
+		       timestamp.Hour, timestamp.Minute, timestamp.Second);
+		title[++c] = buf;
 	}
 	title[++c] = NULL;
 

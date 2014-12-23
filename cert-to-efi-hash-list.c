@@ -129,7 +129,7 @@ main(int argc, char *argv[])
         X509 *cert = PEM_read_bio_X509(cert_bio, NULL, NULL, NULL);
 	unsigned char *cert_buf = NULL;
 
-	int cert_len = i2d_X509(cert, &cert_buf);
+	int cert_len = i2d_X509_CINF(cert->cert_info, &cert_buf);
 	ERR_print_errors_fp(stdout);
 
 	int len, digest_len, time_offset;

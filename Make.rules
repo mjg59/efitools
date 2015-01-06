@@ -1,10 +1,15 @@
 EFISIGNED = $(patsubst %.efi,%-signed.efi,$(EFIFILES))
 MANPAGES = $(patsubst doc/%.1.in,doc/%.1,$(wildcard doc/*.1.in))
 HELP2MAN = help2man
-ARCH	= $(shell uname -m)
+ARCH	 = $(shell uname -m | sed s/i.86/ia32/)
+ifeq ($(ARCH),ia32)
+ARCH3264 = -m32
+else ifneq ($(ARCH),x86_64)
+$(error unknown architecture $(ARCH))
+endif
 INCDIR	   = -I$(TOPDIR)include/ -I/usr/include/efi -I/usr/include/efi/$(ARCH) -I/usr/include/efi/protocol
 CPPFLAGS   = -DCONFIG_$(ARCH)
-CFLAGS	   = -O2 -fpic -Wall -fshort-wchar -fno-strict-aliasing -fno-merge-constants -mno-red-zone -fno-stack-protector -g
+CFLAGS	   = -O2 $(ARCH3264) -fpic -Wall -fshort-wchar -fno-strict-aliasing -fno-merge-constants -mno-red-zone -fno-stack-protector -g
 LDFLAGS	   = -nostdlib
 CRTOBJ		= crt0-efi-$(ARCH).o
 CRTPATHS	= /lib /lib64 /lib/efi /lib64/efi /usr/lib /usr/lib64 /usr/lib/efi /usr/lib64/efi
@@ -14,7 +19,7 @@ CRTOBJS		= $(CRTPATH)/$(CRTOBJ)
 # aligned otherwise the file alignment gets screwed up
 LDSCRIPT	= $(TOPDIR)/elf_$(ARCH)_efi.lds
 LDFLAGS		+= -T $(LDSCRIPT) -shared -Bsymbolic $(CRTOBJS) -L $(CRTPATH)
-LOADLIBES	= -lefi -lgnuefi $(shell $(CC) -print-libgcc-file-name)
+LOADLIBES	= -lefi -lgnuefi $(shell $(CC) $(ARCH3264) -print-libgcc-file-name)
 FORMAT		= efi-app-$(ARCH)
 OBJCOPY		= objcopy
 MYGUID		= 11111111-2222-3333-4444-123456789abc

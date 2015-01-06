@@ -1,7 +1,11 @@
 EFIFILES = HelloWorld.efi LockDown.efi Loader.efi ReadVars.efi UpdateVars.efi \
-	KeyTool.efi HashTool.efi PreLoader.efi SetNull.efi
+	KeyTool.efi HashTool.efi SetNull.efi
 BINARIES = cert-to-efi-sig-list sig-list-to-certs sign-efi-sig-list \
 	hash-to-efi-sig-list efi-readvar efi-updatevar cert-to-efi-hash-list
+
+ifeq ($(ARCH),x86_64)
+EFIFILES += PreLoader.efi
+endif
 
 MSGUID = 77FA9ABD-0359-4D32-BD60-28F4E78F784B
 
@@ -82,34 +86,35 @@ PreLoader.so: lib/lib-efi.a
 HelloWorld.so: lib/lib-efi.a
 
 cert-to-efi-sig-list: cert-to-efi-sig-list.o lib/lib.a
-	$(CC) -o $@ $< -lcrypto lib/lib.a
+	$(CC) $(ARCH3264) -o $@ $< -lcrypto lib/lib.a
 
 sig-list-to-certs: sig-list-to-certs.o lib/lib.a
-	$(CC) -o $@ $< -lcrypto lib/lib.a
+	$(CC) $(ARCH3264) -o $@ $< -lcrypto lib/lib.a
 
 sign-efi-sig-list: sign-efi-sig-list.o lib/lib.a
-	$(CC) -o $@ $< -lcrypto lib/lib.a
+	$(CC) $(ARCH3264) -o $@ $< -lcrypto lib/lib.a
 
 hash-to-efi-sig-list: hash-to-efi-sig-list.o lib/lib.a
-	$(CC) -o $@ $< lib/lib.a
+	$(CC) $(ARCH3264) -o $@ $< lib/lib.a
 
 cert-to-efi-hash-list: cert-to-efi-hash-list.o lib/lib.a
-	$(CC) -o $@ $< -lcrypto lib/lib.a
+	$(CC) $(ARCH3264) -o $@ $< -lcrypto lib/lib.a
 
 efi-keytool: efi-keytool.o lib/lib.a
-	$(CC) -o $@ $< lib/lib.a
+	$(CC) $(ARCH3264) -o $@ $< lib/lib.a
 
 efi-readvar: efi-readvar.o lib/lib.a
-	$(CC) -o $@ $< -lcrypto lib/lib.a
+	$(CC) $(ARCH3264) -o $@ $< -lcrypto lib/lib.a
 
 efi-updatevar: efi-updatevar.o lib/lib.a
-	$(CC) -o $@ $< -lcrypto lib/lib.a
+	$(CC) $(ARCH3264) -o $@ $< -lcrypto lib/lib.a
 
 clean:
 	rm -f PK.* KEK.* DB.* $(EFIFILES) $(EFISIGNED) $(BINARIES) *.o *.so
 	rm -f noPK.*
 	rm -f doc/*.1
 	$(MAKE) -C lib clean
+	$(MAKE) -C lib/asn1 clean
 
 FORCE:
 

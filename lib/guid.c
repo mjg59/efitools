@@ -7,6 +7,8 @@
 #include <guid.h>
 #include <stdio.h>
 
+#define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
+
 #ifndef BUILD_EFI
 /* EFI has %g for this, so it's only needed in platform c */
 const char *guid_to_str(EFI_GUID *guid)
@@ -40,7 +42,27 @@ compare_guid(EFI_GUID *g1, EFI_GUID *g2)
 {
 	return memcmp(g1, g2, sizeof(*g1));
 }
+
+EFI_GUID *
+get_owner_guid(char *var)
+{
+	char *variables[] = { "PK", "KEK", "db", "dbx", "dbt", "MokList" };
+	EFI_GUID *owners[] = { &GV_GUID, &GV_GUID, &SIG_DB, &SIG_DB, &SIG_DB, &MOK_OWNER };
+	EFI_GUID *owner = NULL;
+	int i;
+
+	for(i = 0; i < ARRAY_SIZE(variables); i++) {
+		if (strcmp(var, variables[i]) == 0) {
+			owner = owners[i];
+			break;
+		}
+	}
+
+	return owner;
+}
 #endif
+
+
 
 /* all the necessary guids */
 EFI_GUID GV_GUID = EFI_GLOBAL_VARIABLE;

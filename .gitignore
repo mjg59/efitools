@@ -29,3 +29,4 @@ sign-efi-sig-list
 efi-keytool
 efi-readvar
 efi-updatevar
+flash-var

@@ -1,7 +1,8 @@
 EFIFILES = HelloWorld.efi LockDown.efi Loader.efi ReadVars.efi UpdateVars.efi \
 	KeyTool.efi HashTool.efi SetNull.efi
 BINARIES = cert-to-efi-sig-list sig-list-to-certs sign-efi-sig-list \
-	hash-to-efi-sig-list efi-readvar efi-updatevar cert-to-efi-hash-list
+	hash-to-efi-sig-list efi-readvar efi-updatevar cert-to-efi-hash-list \
+	flash-var
 
 ifeq ($(ARCH),x86_64)
 EFIFILES += PreLoader.efi
@@ -108,6 +109,9 @@ efi-readvar: efi-readvar.o lib/lib.a
 
 efi-updatevar: efi-updatevar.o lib/lib.a
 	$(CC) $(ARCH3264) -o $@ $< -lcrypto lib/lib.a
+
+flash-var: flash-var.o lib/lib.a
+	$(CC) $(ARCH3264) -o $@ $< lib/lib.a
 
 clean:
 	rm -f PK.* KEK.* DB.* $(EFIFILES) $(EFISIGNED) $(BINARIES) *.o *.so

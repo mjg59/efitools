@@ -84,21 +84,33 @@ pecoff_read_header(PE_COFF_LOADER_IMAGE_CONTEXT *context, void *data)
 		return EFI_UNSUPPORTED;
 	}
 
-	if (PEHdr->Pe32.OptionalHeader.Magic != EFI_IMAGE_NT_OPTIONAL_HDR64_MAGIC) {
-		Print(L"Only 64-bit images supported\n");
+	if (PEHdr->Pe32.OptionalHeader.Magic != EFI_IMAGE_NT_OPTIONAL_HDR64_MAGIC &&
+	    PEHdr->Pe32.OptionalHeader.Magic != EFI_IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
+		Print(L"Only IA32 or X64 images supported\n");
 		return EFI_UNSUPPORTED;
 	}
 
 	context->PEHdr = PEHdr;
-	context->ImageAddress = PEHdr->Pe32Plus.OptionalHeader.ImageBase;
-	context->ImageSize = (UINT64)PEHdr->Pe32Plus.OptionalHeader.SizeOfImage;
-	context->SizeOfHeaders = PEHdr->Pe32Plus.OptionalHeader.SizeOfHeaders;
-	context->EntryPoint = PEHdr->Pe32Plus.OptionalHeader.AddressOfEntryPoint;
-	context->RelocDir = &PEHdr->Pe32Plus.OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_BASERELOC];
-	context->NumberOfRvaAndSizes = PEHdr->Pe32Plus.OptionalHeader.NumberOfRvaAndSizes;
+	if (PEHdr->Pe32.OptionalHeader.Magic == EFI_IMAGE_NT_OPTIONAL_HDR64_MAGIC) {
+		context->ImageAddress = PEHdr->Pe32Plus.OptionalHeader.ImageBase;
+		context->ImageSize = (UINT64)PEHdr->Pe32Plus.OptionalHeader.SizeOfImage;
+		context->SizeOfHeaders = PEHdr->Pe32Plus.OptionalHeader.SizeOfHeaders;
+		context->EntryPoint = PEHdr->Pe32Plus.OptionalHeader.AddressOfEntryPoint;
+		context->RelocDir = &PEHdr->Pe32Plus.OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_BASERELOC];
+		context->NumberOfRvaAndSizes = PEHdr->Pe32Plus.OptionalHeader.NumberOfRvaAndSizes;
+		context->SecDir = (EFI_IMAGE_DATA_DIRECTORY *) &PEHdr->Pe32Plus.OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_SECURITY];
+
+	} else if (PEHdr->Pe32.OptionalHeader.Magic == EFI_IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
+		context->ImageAddress = PEHdr->Pe32.OptionalHeader.ImageBase;
+		context->ImageSize = (UINT64)PEHdr->Pe32.OptionalHeader.SizeOfImage;
+		context->SizeOfHeaders = PEHdr->Pe32.OptionalHeader.SizeOfHeaders;
+		context->EntryPoint = PEHdr->Pe32.OptionalHeader.AddressOfEntryPoint;
+		context->RelocDir = &PEHdr->Pe32.OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_BASERELOC];
+		context->NumberOfRvaAndSizes = PEHdr->Pe32.OptionalHeader.NumberOfRvaAndSizes;
+		context->SecDir = (EFI_IMAGE_DATA_DIRECTORY *) &PEHdr->Pe32.OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_SECURITY];
+	}
 	context->NumberOfSections = PEHdr->Pe32.FileHeader.NumberOfSections;
 	context->FirstSection = (EFI_IMAGE_SECTION_HEADER *)((char *)PEHdr + PEHdr->Pe32.FileHeader.SizeOfOptionalHeader + sizeof(UINT32) + sizeof(EFI_IMAGE_FILE_HEADER));
-	context->SecDir = (EFI_IMAGE_DATA_DIRECTORY *) &PEHdr->Pe32Plus.OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_SECURITY];
 
 	if (context->SecDir->VirtualAddress >= context->ImageSize) {
 		Print(L"Malformed security header\n");
@@ -165,7 +177,11 @@ pecoff_relocate(PE_COFF_LOADER_IMAGE_CONTEXT *context, void **data)
 		return efi_status;
 	}
 
-	context->PEHdr->Pe32Plus.OptionalHeader.ImageBase = (UINT64)*data;
+	if (context->PEHdr->Pe32.OptionalHeader.Magic == EFI_IMAGE_NT_OPTIONAL_HDR64_MAGIC) {
+		context->PEHdr->Pe32Plus.OptionalHeader.ImageBase = (UINT64)*data;
+	} else if (context->PEHdr->Pe32.OptionalHeader.Magic == EFI_IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
+		context->PEHdr->Pe32.OptionalHeader.ImageBase = (UINT32)(long)*data;
+	}
 
 	if (context->NumberOfRvaAndSizes <= EFI_IMAGE_DIRECTORY_ENTRY_BASERELOC) {
 		Print(L"Image has no relocation entry\n");

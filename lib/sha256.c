@@ -26,7 +26,8 @@
 #include <simple_file.h>
 
 #ifndef BUILD_EFI
-#define Print(...) do { } while(0)
+#include <stdio.h>
+#define Print(...) printf("%ls", __VA_ARGS__)
 #define AllocatePool(x) malloc(x)
 #define CopyMem(d, s, l) memcpy(d, s, l)
 #define ZeroMem(s, l) memset(s, 0, l)
@@ -281,8 +282,13 @@ sha256_get_pecoff_digest_mem(void *buffer, UINTN DataSize,
 	unsigned int hashsize;
 	EFI_IMAGE_SECTION_HEADER *section;
 	EFI_IMAGE_SECTION_HEADER **sections;
-	int  i, sum_of_bytes;
+	int  i, sum_of_bytes, checksum_size;
 	EFI_STATUS efi_status;
+	void *checksum_ptr;
+
+	/* add extra end alignment; rely on data buffer being zero
+	 * filled to the end of the page */
+	DataSize = ALIGN_VALUE(DataSize, 8);
 
 	efi_status = pecoff_read_header(&context, buffer);
 	if (efi_status != EFI_SUCCESS) {
@@ -290,7 +296,15 @@ sha256_get_pecoff_digest_mem(void *buffer, UINTN DataSize,
 		return efi_status;
 	}
 		
-	sections = AllocatePool(context.PEHdr->Pe32.FileHeader.NumberOfSections * sizeof(*sections));
+	if (context.PEHdr->Pe32.OptionalHeader.Magic == EFI_IMAGE_NT_OPTIONAL_HDR64_MAGIC) {
+		checksum_ptr = &context.PEHdr->Pe32Plus.OptionalHeader.CheckSum;
+		checksum_size = sizeof(context.PEHdr->Pe32Plus.OptionalHeader.CheckSum);
+	} else {
+		checksum_ptr = &context.PEHdr->Pe32.OptionalHeader.CheckSum;
+		checksum_size = sizeof(context.PEHdr->Pe32.OptionalHeader.CheckSum);
+	}
+
+	sections = AllocatePool(context.NumberOfSections * sizeof(*sections));
 	if (!sections)
 		return EFI_OUT_OF_RESOURCES;
 
@@ -298,27 +312,26 @@ sha256_get_pecoff_digest_mem(void *buffer, UINTN DataSize,
 
 	/* hash start to checksum */
 	hashbase = buffer;
-	hashsize = (void *)&context.PEHdr->Pe32.OptionalHeader.CheckSum - buffer;
+	hashsize = checksum_ptr - buffer;
 		
 	sha256_update(&ctx, hashbase, hashsize);
 
 	/* hash post-checksum to start of certificate table */
-	hashbase = (void *)&context.PEHdr->Pe32.OptionalHeader.CheckSum + sizeof (int);
+	hashbase = checksum_ptr + checksum_size;
 	hashsize = (void *)context.SecDir - hashbase;
 
 	sha256_update(&ctx, hashbase, hashsize);
 		
 	/* Hash end of certificate table to end of image header */
-	hashbase = &context.PEHdr->Pe32Plus.OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_SECURITY + 1];
-	hashsize = context.PEHdr->Pe32Plus.OptionalHeader.SizeOfHeaders -
-	  (int) ((void *) (&context.PEHdr->Pe32Plus.OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_SECURITY + 1]) - buffer);
+	hashbase = context.SecDir + 1;
+	hashsize = context.SizeOfHeaders -
+	  (int) (hashbase - buffer);
 
 	sha256_update(&ctx, hashbase, hashsize);
-	sum_of_bytes = context.PEHdr->Pe32Plus.OptionalHeader.SizeOfHeaders;
+	sum_of_bytes = context.SizeOfHeaders;
 	section = (EFI_IMAGE_SECTION_HEADER *) ((char *)context.PEHdr + sizeof (UINT32) + sizeof (EFI_IMAGE_FILE_HEADER) + context.PEHdr->Pe32.FileHeader.SizeOfOptionalHeader);
-
 	/* Sort the section headers by their data pointers */
-	for (i = 0; i < context.PEHdr->Pe32.FileHeader.NumberOfSections; i++) {
+	for (i = 0; i < context.NumberOfSections; i++) {
 		int p = i;
 		while (p > 0 && section->PointerToRawData < sections[p - 1]->PointerToRawData) {
 			sections[p] = sections[p-1];
@@ -327,10 +340,11 @@ sha256_get_pecoff_digest_mem(void *buffer, UINTN DataSize,
 		sections[p] = section++;
 	}
 	/* hash the sorted sections */
-	for (i = 0; i < context.PEHdr->Pe32.FileHeader.NumberOfSections; i++) {
+	for (i = 0; i < context.NumberOfSections; i++) {
 		section = sections[i];
 		hashbase  = pecoff_image_address(buffer, DataSize, section->PointerToRawData);
-		hashsize  = (unsigned int) section->SizeOfRawData;
+		hashsize  = (unsigned int) ALIGN_VALUE(section->SizeOfRawData,
+						       context.FileAlignment);
 		if (hashsize == 0)
 			continue;
 		sha256_update(&ctx, hashbase, hashsize);
@@ -340,7 +354,7 @@ sha256_get_pecoff_digest_mem(void *buffer, UINTN DataSize,
 	if (DataSize > sum_of_bytes) {
 		/* stuff at end to hash */
 		hashbase = buffer + sum_of_bytes;
-		hashsize = (unsigned int)(DataSize - context.PEHdr->Pe32Plus.OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_SECURITY].Size - sum_of_bytes);
+		hashsize = (unsigned int)(DataSize - context.SecDir->Size - sum_of_bytes);
 		sha256_update(&ctx, hashbase, hashsize);
 	}
 	sha256_finish(&ctx, hash);

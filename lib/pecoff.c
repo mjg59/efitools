@@ -59,7 +59,8 @@
 #include <errors.h>
 
 #ifndef BUILD_EFI
-#define Print(...) do { } while(0)
+#include <stdio.h>
+#define Print(...) printf("%ls", __VA_ARGS__)
 #define AllocatePool(x) malloc(x)
 #define CopyMem(d, s, l) memcpy(d, s, l)
 #define ZeroMem(s, l) memset(s, 0, l)
@@ -99,6 +100,7 @@ pecoff_read_header(PE_COFF_LOADER_IMAGE_CONTEXT *context, void *data)
 		context->RelocDir = &PEHdr->Pe32Plus.OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_BASERELOC];
 		context->NumberOfRvaAndSizes = PEHdr->Pe32Plus.OptionalHeader.NumberOfRvaAndSizes;
 		context->SecDir = (EFI_IMAGE_DATA_DIRECTORY *) &PEHdr->Pe32Plus.OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_SECURITY];
+		context->FileAlignment = PEHdr->Pe32Plus.OptionalHeader.FileAlignment;
 
 	} else if (PEHdr->Pe32.OptionalHeader.Magic == EFI_IMAGE_NT_OPTIONAL_HDR32_MAGIC) {
 		context->ImageAddress = PEHdr->Pe32.OptionalHeader.ImageBase;
@@ -108,7 +110,7 @@ pecoff_read_header(PE_COFF_LOADER_IMAGE_CONTEXT *context, void *data)
 		context->RelocDir = &PEHdr->Pe32.OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_BASERELOC];
 		context->NumberOfRvaAndSizes = PEHdr->Pe32.OptionalHeader.NumberOfRvaAndSizes;
 		context->SecDir = (EFI_IMAGE_DATA_DIRECTORY *) &PEHdr->Pe32.OptionalHeader.DataDirectory[EFI_IMAGE_DIRECTORY_ENTRY_SECURITY];
-	}
+		context->FileAlignment = PEHdr->Pe32.OptionalHeader.FileAlignment;	}
 	context->NumberOfSections = PEHdr->Pe32.FileHeader.NumberOfSections;
 	context->FirstSection = (EFI_IMAGE_SECTION_HEADER *)((char *)PEHdr + PEHdr->Pe32.FileHeader.SizeOfOptionalHeader + sizeof(UINT32) + sizeof(EFI_IMAGE_FILE_HEADER));
 
@@ -132,10 +134,8 @@ pecoff_image_layout(PE_COFF_LOADER_IMAGE_CONTEXT *context, void **data)
 
 	for (i = 0; i < context->NumberOfSections; i++) {
 		s = &context->FirstSection[i];
-		size = s->Misc.VirtualSize;
-	
-		if (size > s->SizeOfRawData)
-			size = s->SizeOfRawData;
+		size = ALIGN_VALUE(s->SizeOfRawData, context->FileAlignment);
+
 		base = pecoff_image_address(buffer, context->ImageSize, s->VirtualAddress);
 		end = pecoff_image_address(buffer, context->ImageSize, s->VirtualAddress + size - 1);
 

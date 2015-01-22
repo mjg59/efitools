@@ -7,6 +7,7 @@
 #include <efi.h>
 #include <efilib.h>
 
+#include <PeImage.h>		/* for ALIGN_VALUE */
 #include <console.h>
 #include <simple_file.h>
 #include <efiauthenticated.h>
@@ -167,7 +168,8 @@ simple_file_read_all(EFI_FILE *file, UINTN *size, void **buffer)
 
 	*size = fi->FileSize;
 
-	*buffer = AllocatePool(*size);
+	/* might use memory mapped, so align up to nearest page */
+	*buffer = AllocateZeroPool(ALIGN_VALUE(*size, 4096));
 	if (!*buffer) {
 		Print(L"Failed to allocate buffer of size %d\n", *size);
 		return EFI_OUT_OF_RESOURCES;

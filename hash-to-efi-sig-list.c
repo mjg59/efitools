@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <wchar.h>
 
+#include <PeImage.h>		/* for ALIGN_VALUE */
 #include <sha256.h>
 #include <efiauthenticated.h>
 #include <guid.h>
@@ -80,7 +81,8 @@ main(int argc, char *argv[])
 			exit(1);
 		}
 		fstat(fdefifile, &st);
-		efifile = malloc(st.st_size);
+		efifile = malloc(ALIGN_VALUE(st.st_size, 4096));
+		memset(efifile, 0, ALIGN_VALUE(st.st_size, 4096));
 		read(fdefifile, efifile, st.st_size);
 		close(fdefifile);
 		status = sha256_get_pecoff_digest_mem(efifile, st.st_size,

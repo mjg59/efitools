@@ -103,7 +103,7 @@ main(int argc, char *argv[])
 		/* timestamp.Year is from 0 not 1900 as tm year is */
 		tms.tm_year += 1900;
 		timestamp.Year = tms.tm_year;
-		timestamp.Month = tms.tm_mon;
+		timestamp.Month = tms.tm_mon + 1;
 		timestamp.Day = tms.tm_mday;
 		timestamp.Hour = tms.tm_hour;
 		timestamp.Minute = tms.tm_min;

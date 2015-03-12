@@ -158,6 +158,7 @@ main(int argc, char *argv[])
 		tm = &tms;
 		/* timestamp.Year is from 0 not 1900 as tm year is */
 		tm->tm_year += 1900;
+		tm->tm_mon += 1; /* tm_mon is 0-11 not 1-12 */
 	} else if (attributes & EFI_VARIABLE_APPEND_WRITE) {
 		/* for append update timestamp should be zero */
 		memset(&tms, 0, sizeof(tms));
@@ -167,6 +168,7 @@ main(int argc, char *argv[])
 		tm = localtime(&t);
 		/* timestamp.Year is from 0 not 1900 as tm year is */
 		tm->tm_year += 1900;
+		tm->tm_mon += 1; /* tm_mon is 0-11 not 1-12 */
 	}
 
 	timestamp.Year = tm->tm_year;

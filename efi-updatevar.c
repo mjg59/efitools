@@ -328,7 +328,7 @@ main(int argc, char *argv[])
 		/* FIXME: currently timestamp is one year into future because of
 		 * the way we set up the secure environment  */
 		timestamp.Year = tm->tm_year + 1900 + 1;
-		timestamp.Month = tm->tm_mon;
+		timestamp.Month = tm->tm_mon + 1;
 		timestamp.Day = tm->tm_mday;
 		timestamp.Hour = tm->tm_hour;
 		timestamp.Minute = tm->tm_min;

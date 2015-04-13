@@ -92,16 +92,18 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
-	/* copy to wchar16_t including trailing zero */
-	for (i = 0; i < strlen(argv[2]) + 1; i++)
-		var[i] = argv[2][i];
-	varlen = i*2;		/* size of storage including zero */
+        if (argc > 2) {
+		/* copy to wchar16_t including trailing zero */
+		for (i = 0; i < strlen(argv[2]) + 1; i++)
+			var[i] = argv[2][i];
+		varlen = i*2;		/* size of storage including zero */
 
-	if (!owner)
-		owner = get_owner_guid(argv[2]);
-	if (!owner) {
-		fprintf(stderr, "variable %s has no defined guid, one must be specified\n", argv[2]);
-		exit(1);
+		if (!owner)
+			owner = get_owner_guid(argv[2]);
+		if (!owner) {
+			fprintf(stderr, "variable %s has no defined guid, one must be specified\n", argv[2]);
+			exit(1);
+		}
 	}
 
 
@@ -139,20 +141,23 @@ main(int argc, char *argv[])
 		perror("");
 	}
 
-	varfile = open(argv[3], O_RDONLY);
-	if (varfile < 0) {
-		fprintf(stderr, "Failed to read file %s:", argv[1]);
-		perror("");
-	}
-	fstat(varfile, &st);
-	varfilesize = st.st_size;
+	if (argc > 2) {
+		varfile = open(argv[3], O_RDONLY);
+		if (varfile < 0) {
+			fprintf(stderr, "Failed to read file %s:", argv[3]);
+			perror("");
+		}
 
-	vardata = malloc(varfilesize);
-	if (read(varfile, vardata, varfilesize) != varfilesize) {
-		perror("Failed to read variable file");
-		exit(1);
+		fstat(varfile, &st);
+		varfilesize = st.st_size;
+
+		vardata = malloc(varfilesize);
+		if (read(varfile, vardata, varfilesize) != varfilesize) {
+			perror("Failed to read variable file");
+			exit(1);
+		}
+		close(varfile);
 	}
-	close(varfile);
 
 	buf = malloc(sizeof(EFI_GUID));
 
@@ -190,21 +195,23 @@ main(int argc, char *argv[])
 		vh = (void *)HEADER_ALIGN((char *)(vh + 1) + vh->NameSize + vh->DataSize);
 	}
 	printf("Found %d variables, now at offset %ld\n", i, (long)((char *)vh - (char *)vsh));
-	memset(vh, 0, sizeof(*vh));
-	vh->StartId = VARIABLE_DATA;
-	vh->State = VAR_ADDED;
-	vh->Attributes = attributes;
-	vh->NameSize = varlen;
-	vh->DataSize = varfilesize;
-	vh->TimeStamp = timestamp;
-	vh->VendorGuid = *owner;
+	if (argc > 2) {
+		memset(vh, 0, sizeof(*vh));
+		vh->StartId = VARIABLE_DATA;
+		vh->State = VAR_ADDED;
+		vh->Attributes = attributes;
+		vh->NameSize = varlen;
+		vh->DataSize = varfilesize;
+		vh->TimeStamp = timestamp;
+		vh->VendorGuid = *owner;
 
-	buf = (void *)(vh + 1);
-	memcpy (buf, var, varlen);
-	buf += varlen;
-	memcpy (buf, vardata, varfilesize);
-	lseek(flashfile, offset, SEEK_SET);
-	write(flashfile, vsh, vsh->Size);
+		buf = (void *)(vh + 1);
+		memcpy (buf, var, varlen);
+		buf += varlen;
+		memcpy (buf, vardata, varfilesize);
+		lseek(flashfile, offset, SEEK_SET);
+		write(flashfile, vsh, vsh->Size);
+	}
 	close(flashfile);
 	
 	exit(0);

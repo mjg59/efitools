@@ -21,7 +21,7 @@
 static void
 usage(const char *progname)
 {
-	printf("Usage: %s: [-l] [-g <owner guid>] [-t <timestamp>] <flashfile> <var> <varcontentfile>\n", progname);
+	printf("Usage: %s: [-l] [-v] [-g <owner guid>] [-t <timestamp>] <flashfile> <var> <varcontentfile>\n", progname);
 }
 
 static void
@@ -44,7 +44,7 @@ main(int argc, char *argv[])
 		| EFI_VARIABLE_RUNTIME_ACCESS
 		| EFI_VARIABLE_BOOTSERVICE_ACCESS
 		| EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS;
-	int flashfile, varfile, i, offset, varlen, varfilesize, listvars = 0;
+	int flashfile, varfile, i, offset, varlen, varfilesize, listvars = 0, vol = 0;
 	const int chunk = 8;
 	wchar_t var[128];
 	struct stat st;
@@ -74,11 +74,18 @@ main(int argc, char *argv[])
 			listvars = 1;
 			argv += 1;
 			argc -= 1;
+		} else if (strcmp("-v", argv[1]) == 0) {
+			vol = 1;
+			argv += 1;
+			argc -= 1;
 		} else {
 			/* unrecognised option */
 			break;
 		}
 	}
+
+	if (vol)
+		attributes &= ~(EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS);
 
 	if ((argc != 4 && !listvars) || (argc != 2 && listvars)) {
 		usage(progname);

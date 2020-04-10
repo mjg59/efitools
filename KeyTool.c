@@ -407,7 +407,7 @@ add_new_key(int key, UINTN options)
 {
 	CHAR16 *title[3];
 	/* PK update must be signed: so require .auth file */
-	CHAR16 *ext = (key != KEY_PK && variable_is_setupmode())
+	CHAR16 *ext = ((key != KEY_PK && variable_is_setupmode()) || key == KEY_MOK)
 		? L".esl|.auth|.cer" : L".auth";
 
 	title[0] = L"Select File containing additional key for";
